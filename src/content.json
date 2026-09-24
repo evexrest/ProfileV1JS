@@ -1,0 +1,101 @@
+{
+  "name": "Everest",
+  "eyebrow": "Toronto / Boston · First year",
+  "status": "Open to summer 2027 roles · Boston or remote",
+  "intro": "I study economics and computer science at the University of Toronto, actively learning about tech, finance, and chasing startups and VC.",
+  "links": [
+    {
+      "icon": "mail",
+      "label": "Email",
+      "href": "mailto:everestxmtn@gmail.com"
+    },
+    {
+      "icon": "linkedin",
+      "label": "LinkedIn",
+      "href": "https://www.linkedin.com/in/yuecheng-x-395a6a374/"
+    },
+    {
+      "icon": "instagram",
+      "label": "Instagram",
+      "href": "https://www.instagram.com/everest.mtny/"
+    }
+  ],
+  "footer": {
+    "email": "everestxmtn@gmail.com",
+    "location": "Toronto / Boston"
+  },
+  "sections": [
+    {
+      "title": "Now",
+      "rows": [
+        {
+          "label": "Student",
+          "bold": "Fulltime",
+          "text": "",
+          "tag": ""
+        },
+        {
+          "label": "Summer 2027",
+          "bold": "Looking",
+          "text": "for internships!",
+          "tag": ""
+        }
+      ]
+    },
+    {
+      "title": "Building",
+      "rows": [
+        {
+          "label": "Tool",
+          "bold": "Daily Desk Note",
+          "text": "",
+          "tag": "Private"
+        },
+        {
+          "label": "Tool",
+          "bold": "Finance Newsletter",
+          "text": "",
+          "tag": "Private"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "name": {
+      "x": 0,
+      "y": 16,
+      "w": 57,
+      "s": 1.65
+    },
+    "intro": {
+      "x": 4,
+      "y": 31,
+      "w": 28,
+      "s": 0.9
+    },
+    "lede": {
+      "x": 4,
+      "y": 37,
+      "w": 23,
+      "s": 0.75
+    },
+    "section-0": {
+      "x": 67,
+      "y": 31,
+      "w": 25,
+      "s": 0.95
+    },
+    "section-1": {
+      "x": 36,
+      "y": 31,
+      "w": 26,
+      "s": 0.9
+    },
+    "footer": {
+      "x": 0,
+      "y": 53,
+      "w": 50,
+      "s": 0.9
+    }
+  }
+}
