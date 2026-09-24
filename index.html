@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style id="site-style">
+  /* Deliberate single-theme design: near-black, painted explicitly so it holds on any
+     host ground. Every colour is a token, declared once, up front. */
+  :root {
+    color-scheme: dark;
+
+    --ground:     #050506;
+    --ink:        #f1f3f5;
+    --ink-soft:   #9aa3ad;
+    --ink-faint:  #5f6772;
+    --accent:     #5cc8c9;
+    --accent-dim: #3a8f91;
+    --hairline:   rgba(255, 255, 255, 0.08);
+
+    --display: "Sora", "Helvetica Neue", Arial, sans-serif;
+    --body:    "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --name-size: clamp(3rem, 14vw, 6.25rem);
+    --scale: 1;
+    --canvas-h: 660px;
+    /* Stacked: 1.30em x 0.2 = the 0.26em peak this had before, which fits. */
+    --lift-k: 0.2;
+  }
+
+  * { box-sizing: border-box; }
+  /* Anything the script hides stays hidden, whatever display a class gives it. */
+  [hidden] { display: none !important; }
+
+  html, body { background: var(--ground); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Almost nothing: one faint cool glow top-left. Solid black otherwise. */
+  .field {
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(40rem 32rem at 12% 8%, rgba(255, 255, 255, 0.045), transparent 70%);
+    transform: translate3d(var(--px, 0px), var(--py, 0px), 0);
+    transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* A soft light that follows the cursor across the whole page. It sits under the
+     content, so text stays crisp. */
+  .spot {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 400ms ease;
+    background: radial-gradient(
+      16rem 16rem at var(--cx, 50%) var(--cy, 50%),
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.015) 45%,
+      transparent 70%);
+  }
+  .spot.on { opacity: 1; }
+
+  /* ---- layout ------------------------------------------------------------
+     Every block has a place on a grid of 12px cells, 96 cells wide (1152px),
+     55 cells tall (660px): one screen. Positions are stored in the content
+     below. Wide windows show that frame whole, scaled to fit the window's width
+     and height, and never scroll. Narrow windows and phones stack the blocks
+     instead, and scroll. */
+  .page {
+    position: relative;
+    z-index: 1;
+    padding: 3rem 1.5rem 3rem;
+  }
+  .canvas { display: flex; flex-direction: column; gap: 1.75rem; }
+  .blk { position: relative; min-width: 0; }
+
+  body.arranged .page {
+    padding: clamp(3.5rem, 12vh, 7rem) clamp(2rem, 5vw, 4.5rem) 2.5rem;
+  }
+  /* Centred across the window, so any room the frame doesn't fill is shared evenly. */
+  body.arranged .canvas-wrap {
+    width: calc(1152px * var(--scale));
+    height: calc(var(--canvas-h) * var(--scale));
+    margin: 0 auto;
+  }
+  body.arranged .canvas {
+    display: block;
+    position: relative;
+    width: 1152px;
+    height: var(--canvas-h);
+    transform: scale(var(--scale));
+    transform-origin: 0 0;
+  }
+  /* --s is a block's size. Its box is laid out --s times narrower, then scaled
+     back up, so it still covers --w cells while everything inside grows or
+     shrinks with it. Stacked (narrow) screens ignore size. */
+  body.arranged .blk {
+    position: absolute;
+    left: calc(var(--x) * 12px);
+    top: calc(var(--y) * 12px);
+    width: calc(var(--w) * 12px / var(--s, 1));
+    transform: scale(var(--s, 1));
+    transform-origin: 0 0;
+  }
+  body.arranged { --name-size: 6.25rem; --lift-k: 1; }
+  /* One screen, no scrolling: the whole arrangement is scaled to fit the window. */
+  html.locked, html.locked body { height: 100%; overflow: hidden; }
+
+  /* ---- hero -------------------------------------------------------------- */
+  .eyebrow {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .status-line { margin: 0.35rem 0 0; color: var(--ink-soft); font-size: 0.875rem; }
+  .nowrap { white-space: nowrap; }
+  .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 0.5rem;
+    border-radius: 50%;
+    vertical-align: 0.1em;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(92, 200, 201, 0.18), 0 0 12px rgba(92, 200, 201, 0.5);
+  }
+
+  .name {
+    /* Pull the big E left past its built-in side spacing so its stem lines up
+       with the text below it. */
+    margin: 0 0 0 -0.03em;
+    font-family: var(--display);
+    font-weight: 300;
+    font-size: var(--name-size);
+    line-height: 0.95;
+    letter-spacing: 0.005em;
+  }
+  /* Each letter of the name is its own box so it can rise on its own. --lift is
+     how far this letter climbs: tallest in the middle, so the word makes a peak. */
+  .ltr {
+    display: inline-block;
+    white-space: pre;
+    transform: translateY(0);
+    /* Falling back: slow and lazy, so the mountain settles rather than snaps. */
+    transition: transform 1100ms cubic-bezier(0.25, 1, 0.3, 1);
+  }
+  /* Rising: quick, with a little overshoot, like a spring. --lift-k holds the
+     peak back where there isn't room for it: stacked layouts have only the page's
+     own padding above the name, so a full-height climb would go off the top. */
+  .ltr.up {
+    transform: translateY(calc(var(--lift, 0em) * -1 * var(--lift-k, 1)));
+    transition: transform 340ms cubic-bezier(0.18, 1.6, 0.42, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ltr, .ltr.up { transition: none; transform: none; }
+  }
+
+  .lede {
+    margin: 0;
+    font-size: 1.1875rem;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+
+
+  .foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+  .foot a { color: var(--ink-soft); text-decoration: none; }
+  .foot a:hover, .foot a:focus-visible { color: var(--accent); }
+  /* Contact links: the teal icon and a name, no button around them. */
+  .foot-link { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--ink-soft); }
+  .ico {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 5px;
+    /* One teal set, matching the eyebrow, instead of each brand's own colour. */
+    background: rgba(92, 200, 201, 0.12);
+    transition: background 250ms ease;
+  }
+  .ico svg { width: 11px; height: 11px; display: block; fill: var(--accent); }
+  a.foot-link:hover .ico, a.foot-link:focus-visible .ico { background: rgba(92, 200, 201, 0.24); }
+
+  /* ---- sections: bare type on black -------------------------------------- */
+  .block { display: flex; flex-direction: column; gap: 0.7rem; }
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .label::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
+
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .rows li {
+    display: grid;
+    grid-template-columns: 7rem 1fr auto;
+    gap: 0 1rem;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .rows li:first-child { border-top: 1px solid var(--hairline); }
+  .rows code {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-dim);
+  }
+  .rows span:not(.tag) { color: var(--ink); }
+  .rows strong { color: var(--ink); font-weight: 500; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  /* Every section row answers the pointer: the row eases right and its label
+     warms. Now as well as Building since 2026-09-17, Everest's call — so this
+     marks the row you are pointing at rather than promising a link, which is why
+     there is deliberately no pointer cursor even once the projects have links.
+     Mouse only — on a touch screen the hover would stick after a tap. Held off
+     while the editor is open, where a sliding row would fight typing and dragging. */
+  @media (hover: hover) and (pointer: fine) {
+    .rows li { transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+    .rows code { transition: color 260ms ease; }
+    body:not(.editing) .rows li:hover { transform: translateX(4px); }
+    body:not(.editing) .rows li:hover code { color: var(--accent); }
+    @media (prefers-reduced-motion: reduce) {
+      body:not(.editing) .rows li:hover { transform: none; }
+    }
+  }
+
+  @media (max-width: 30rem) {
+    .rows li { grid-template-columns: 1fr auto; }
+    .rows code { grid-column: 1 / -1; }
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    body:not(.editing) .blk { animation: rise 800ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    @keyframes rise {
+      from { opacity: 0.001; translate: 0 14px; }
+      to   { opacity: 1;     translate: 0 0; }
+    }
+  }
+
+  /* ---- edit mode: only ever shown to someone who can edit this page ------- */
+  body.editing .page { padding-bottom: 8rem; }
+
+  .edit-open {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 30;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(92, 200, 201, 0.12);
+    border: 1px solid rgba(92, 200, 201, 0.35);
+    border-radius: 999px;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+  }
+  .edit-open:hover { background: rgba(92, 200, 201, 0.2); }
+
+  .bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.85rem clamp(1rem, 4vw, 2.5rem);
+    background: rgba(10, 12, 14, 0.94);
+    border-top: 1px solid var(--hairline);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+  .bar .hint { color: var(--ink-faint); letter-spacing: 0.02em; }
+  .bar .spacer { flex: 1; }
+  .bar button {
+    font: inherit;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.5rem 1.1rem;
+    cursor: pointer;
+    border: 1px solid var(--hairline);
+    background: rgba(255,255,255,0.05);
+    color: var(--ink);
+  }
+  .bar button.primary { color: #06211f; background: var(--accent); border-color: var(--accent); }
+  .bar button[aria-pressed="true"] { color: var(--accent); border-color: rgba(92,200,201,0.5); background: rgba(92,200,201,0.12); }
+  .bar button[disabled] { opacity: 0.5; cursor: default; }
+  .bar .say { color: var(--ink-soft); letter-spacing: 0.02em; }
+  .bar .say.bad { color: #ff9a8b; }
+  .modes { display: inline-flex; gap: 0.35rem; }
+  .bar .ask { display: inline-flex; align-items: center; gap: 0.5rem; color: #ffcf8b; letter-spacing: 0.02em; }
+  .bar .ask button { padding: 0.35rem 0.8rem; }
+
+  body.editing [contenteditable] {
+    outline: 1px dashed rgba(92, 200, 201, 0.45);
+    outline-offset: 4px;
+    border-radius: 3px;
+    min-width: 2ch;
+    min-height: 1em;
+  }
+  body.editing [contenteditable]:focus { outline: 1px solid var(--accent); }
+  body.editing [contenteditable]:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+  }
+
+  .row-tools { display: none; gap: 0.35rem; }
+  body.editing:not(.arranging) .row-tools { display: inline-flex; }
+  .row-tools button,
+  .add-row {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    cursor: pointer;
+  }
+  .row-tools button:hover, .add-row:hover { color: var(--accent); border-color: rgba(92,200,201,0.4); }
+  .add-row { display: none; align-self: flex-start; margin-top: 0.1rem; }
+  body.editing:not(.arranging) .add-row { display: inline-block; }
+
+  .link-panel {
+    position: fixed;
+    left: clamp(1rem, 4vw, 2.5rem);
+    bottom: 4.5rem;
+    z-index: 31;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: min(34rem, calc(100vw - 2rem));
+    padding: 0.9rem 1rem;
+    background: rgba(14, 16, 19, 0.97);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+  }
+  .link-panel label {
+    display: grid;
+    grid-template-columns: 6rem 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .link-panel input {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+  }
+
+  /* Arrange mode: the grid shows, and each block can be dragged by its body
+     and widened by the handle on its right edge. Both snap to the grid. */
+  body.arranging .canvas {
+    background-color: rgba(255,255,255,0.012);
+    background-image:
+      linear-gradient(rgba(92,200,201,0.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(92,200,201,0.10) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 48px 48px, 48px 48px, 12px 12px, 12px 12px;
+    box-shadow: 0 0 0 1px rgba(92,200,201,0.18);
+  }
+  body.arranging .blk {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline: 1px dashed rgba(92,200,201,0.45);
+    outline-offset: 0;
+    border-radius: 2px;
+  }
+  body.arranging .blk:hover,
+  body.arranging .blk:focus-visible { outline: 1px solid var(--accent); background: rgba(92,200,201,0.05); }
+  body.arranging .blk.dragging { cursor: grabbing; outline: 1px solid var(--accent); background: rgba(92,200,201,0.09); z-index: 5; }
+  body.arranging .blk.clash { outline: 1px solid #ff9a8b; background: rgba(255,154,139,0.08); }
+  body.arranging .blk * { pointer-events: none; }
+  .grip { display: none; }
+  body.arranging .grip {
+    display: block;
+    position: absolute;
+    top: 50%;
+    right: calc(-7px / var(--s, 1));
+    width: calc(12px / var(--s, 1));
+    height: calc(36px / var(--s, 1));
+    margin-top: calc(-18px / var(--s, 1));
+    border-radius: calc(6px / var(--s, 1));
+    background: var(--accent);
+    box-shadow: 0 0 0 calc(3px / var(--s, 1)) var(--ground);
+    cursor: ew-resize;
+    pointer-events: auto;
+  }
+  /* The corner handle scales the whole block: text, spacing and width together. */
+  .sizer { display: none; }
+  body.arranging .sizer {
+    display: block;
+    position: absolute;
+    right: calc(-8px / var(--s, 1));
+    bottom: calc(-8px / var(--s, 1));
+    width: calc(16px / var(--s, 1));
+    height: calc(16px / var(--s, 1));
+    border-radius: 50%;
+    background: var(--ground);
+    border: calc(3px / var(--s, 1)) solid var(--accent);
+    cursor: nwse-resize;
+    pointer-events: auto;
+  }
+  .tagline {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(-1.35rem / var(--s, 1));
+    font-family: var(--mono);
+    font-size: calc(0.625rem / var(--s, 1));
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  body.arranging .blk:hover .tagline,
+  body.arranging .blk.dragging .tagline { display: block; }
+</style>
+</head>
+<body>
+<div class="field" aria-hidden="true"></div>
+<div class="spot" aria-hidden="true"></div>
+<main class="page" id="app"><div class="canvas-wrap"><div class="canvas"><header class="blk" data-block="name" style="--x:0;--y:16;--w:57;--s:1.65;animation-delay:0ms"><h1 class="name" data-path="name" data-placeholder="your name"><span class="ltr" style="--lift:0.289em">E</span><span class="ltr" style="--lift:0.811em">v</span><span class="ltr" style="--lift:1.171em">e</span><span class="ltr" style="--lift:1.300em">r</span><span class="ltr" style="--lift:1.171em">e</span><span class="ltr" style="--lift:0.811em">s</span><span class="ltr" style="--lift:0.289em">t</span></h1></header><div class="blk" data-block="intro" style="--x:4;--y:31;--w:28;--s:0.9;animation-delay:60ms"><p class="eyebrow" data-path="eyebrow" data-placeholder="where you are">Toronto / Boston · First year</p><p class="status-line"><span class="dot" aria-hidden="true"></span>Open to summer 2027 roles · <span class="nowrap">Boston or remote</span></p></div><div class="blk" data-block="lede" style="--x:4;--y:37;--w:23;--s:0.75;animation-delay:120ms"><p class="lede" data-path="intro" data-placeholder="a sentence about you">I study economics and computer science at the University of Toronto, actively learning about tech, finance, and chasing startups and VC.</p></div><div class="blk" data-block="section-1" style="--x:36;--y:31;--w:26;--s:0.9;animation-delay:180ms"><section class="block"><h2 class="label" data-path="sections.1.title" data-placeholder="section name">Building</h2><ul class="rows"><li><code data-path="sections.1.rows.0.label" data-placeholder="label">Tool</code><span><strong data-path="sections.1.rows.0.bold" data-placeholder="bold text">Daily Desk Note</strong></span><span class="tag">Private</span></li><li><code data-path="sections.1.rows.1.label" data-placeholder="label">Tool</code><span><strong data-path="sections.1.rows.1.bold" data-placeholder="bold text">Finance Newsletter</strong></span><span class="tag">Private</span></li></ul><button type="button" class="add-row" data-add="1">+ Add row</button></section></div><div class="blk" data-block="section-0" style="--x:67;--y:31;--w:25;--s:0.95;animation-delay:240ms"><section class="block"><h2 class="label" data-path="sections.0.title" data-placeholder="section name">Now</h2><ul class="rows"><li><code data-path="sections.0.rows.0.label" data-placeholder="label">Student</code><span><strong data-path="sections.0.rows.0.bold" data-placeholder="bold text">Fulltime</strong></span></li><li><code data-path="sections.0.rows.1.label" data-placeholder="label">Summer 2027</code><span><strong data-path="sections.0.rows.1.bold" data-placeholder="bold text">Looking</strong> <span data-path="sections.0.rows.1.text" data-placeholder="rest of line">for internships!</span></span></li></ul><button type="button" class="add-row" data-add="0">+ Add row</button></section></div><footer class="blk" data-block="footer" style="--x:0;--y:53;--w:50;--s:0.9;animation-delay:300ms"><div class="foot"><a href="mailto:everestxmtn@gmail.com">everestxmtn@gmail.com</a><span data-path="footer.location" data-placeholder="location">Toronto / Boston</span><a class="foot-link" href="mailto:everestxmtn@gmail.com"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4.24-8 4.76-8-4.76V6l8 4.76L20 6z"></path></svg></span><span data-path="links.0.label" data-placeholder="label">Email</span></a><a class="foot-link" href="https://www.linkedin.com/in/yuecheng-x-395a6a374/" target="_blank" rel="noopener noreferrer"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.65h.05A4.17 4.17 0 0 1 16.6 8.7c4 0 4.4 2.5 4.4 5.9V21h-4v-5.5c0-1.3 0-3-1.9-3s-2.1 1.4-2.1 2.9V21H9z"></path></svg></span><span data-path="links.1.label" data-placeholder="label">LinkedIn</span></a><a class="foot-link" href="https://www.instagram.com/everest.mtny/" target="_blank" rel="noopener noreferrer"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.07 3.25.15 4.77 1.7 4.92 4.92.06 1.28.07 1.67.07 4.9s-.01 3.6-.07 4.9c-.15 3.2-1.66 4.77-4.92 4.92-1.3.06-1.68.07-4.9.07s-3.6-.01-4.9-.07c-3.26-.15-4.77-1.73-4.92-4.92C2.11 15.6 2.1 15.2 2.1 12s.01-3.6.08-4.9C2.33 3.96 3.84 2.42 7.1 2.27 8.4 2.21 8.8 2.2 12 2.2zm0 3.1a6.7 6.7 0 1 0 0 13.4 6.7 6.7 0 0 0 0-13.4zm0 11.05a4.35 4.35 0 1 1 0-8.7 4.35 4.35 0 0 1 0 8.7zm6.96-11.32a1.56 1.56 0 1 0 0 3.13 1.56 1.56 0 0 0 0-3.13z"></path></svg></span><span data-path="links.2.label" data-placeholder="label">Instagram</span></a></div></footer></div></div></main>
+<script id="site-content" type="application/json">
+{
+  "name": "Everest",
+  "eyebrow": "Toronto / Boston · First year",
+  "status": "Open to summer 2027 roles · Boston or remote",
+  "intro": "I study economics and computer science at the University of Toronto, actively learning about tech, finance, and chasing startups and VC.",
+  "links": [
+    {
+      "icon": "mail",
+      "label": "Email",
+      "href": "mailto:everestxmtn@gmail.com"
+    },
+    {
+      "icon": "linkedin",
+      "label": "LinkedIn",
+      "href": "https://www.linkedin.com/in/yuecheng-x-395a6a374/"
+    },
+    {
+      "icon": "instagram",
+      "label": "Instagram",
+      "href": "https://www.instagram.com/everest.mtny/"
+    }
+  ],
+  "footer": {
+    "email": "everestxmtn@gmail.com",
+    "location": "Toronto / Boston"
+  },
+  "sections": [
+    {
+      "title": "Now",
+      "rows": [
+        {
+          "label": "Student",
+          "bold": "Fulltime",
+          "text": "",
+          "tag": ""
+        },
+        {
+          "label": "Summer 2027",
+          "bold": "Looking",
+          "text": "for internships!",
+          "tag": ""
+        }
+      ]
+    },
+    {
+      "title": "Building",
+      "rows": [
+        {
+          "label": "Tool",
+          "bold": "Daily Desk Note",
+          "text": "",
+          "tag": "Private"
+        },
+        {
+          "label": "Tool",
+          "bold": "Finance Newsletter",
+          "text": "",
+          "tag": "Private"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "name": {
+      "x": 0,
+      "y": 16,
+      "w": 57,
+      "s": 1.65
+    },
+    "intro": {
+      "x": 4,
+      "y": 31,
+      "w": 28,
+      "s": 0.9
+    },
+    "lede": {
+      "x": 4,
+      "y": 37,
+      "w": 23,
+      "s": 0.75
+    },
+    "section-0": {
+      "x": 67,
+      "y": 31,
+      "w": 25,
+      "s": 0.95
+    },
+    "section-1": {
+      "x": 36,
+      "y": 31,
+      "w": 26,
+      "s": 0.9
+    },
+    "footer": {
+      "x": 0,
+      "y": 53,
+      "w": 50,
+      "s": 0.9
+    }
+  }
+}
+</script>
+<script id="site-script">
+(function () {
+  "use strict";
+
+  // Written in pieces: a literal script tag inside this script would end it early.
+  var OPEN = "<" + "script";
+  var CLOSE = "<" + "/script>";
+
+  var CELL = 12;       // px per grid cell
+  var COLS = 96;       // cells across: 96 x 12 = 1152px
+  var MIN_W = 8;       // narrowest a block can be, in cells
+  var MIN_S = 0.5;     // a block's size, as a multiple of its normal size
+  var MAX_S = 3;
+  var S_STEP = 0.05;
+  var ROWS = 55;       // cells down: 55 x 12 = 660px, the height of one screen
+  var MIN_SCALE = 0.7; // below this the arrangement would be too small to read: stack instead
+  var MAX_SCALE = 1.6; // above this, on very large screens, text would look oversized
+  var LIFT = 1.30;     // how far the middle letter of the name rises, in em
+  var HOLD = 950;      // ms a letter stays up after the pointer passes it
+
+  // Where each block starts, and where "Reset layout" puts it back.
+  var DEFAULT_LAYOUT = {
+    "name":      { x: 0,  y: 0,  w: 40 },
+    "intro":     { x: 0,  y: 9,  w: 40 },
+    "lede":      { x: 0,  y: 21, w: 30 },
+    "section-0": { x: 49, y: 1,  w: 35 },
+    "section-1": { x: 49, y: 16, w: 35 },
+    "footer":    { x: 0,  y: 52, w: 40 }
+  };
+
+  var ICONS = {
+    mail: '<path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4.24-8 4.76-8-4.76V6l8 4.76L20 6z"/>',
+    linkedin: '<path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.65h.05A4.17 4.17 0 0 1 16.6 8.7c4 0 4.4 2.5 4.4 5.9V21h-4v-5.5c0-1.3 0-3-1.9-3s-2.1 1.4-2.1 2.9V21H9z"/>',
+    instagram: '<path d="M12 2.2c3.2 0 3.6 0 4.9.07 3.25.15 4.77 1.7 4.92 4.92.06 1.28.07 1.67.07 4.9s-.01 3.6-.07 4.9c-.15 3.2-1.66 4.77-4.92 4.92-1.3.06-1.68.07-4.9.07s-3.6-.01-4.9-.07c-3.26-.15-4.77-1.73-4.92-4.92C2.11 15.6 2.1 15.2 2.1 12s.01-3.6.08-4.9C2.33 3.96 3.84 2.42 7.1 2.27 8.4 2.21 8.8 2.2 12 2.2zm0 3.1a6.7 6.7 0 1 0 0 13.4 6.7 6.7 0 0 0 0-13.4zm0 11.05a4.35 4.35 0 1 1 0-8.7 4.35 4.35 0 0 1 0 8.7zm6.96-11.32a1.56 1.56 0 1 0 0 3.13 1.56 1.56 0 0 0 0-3.13z"/>'
+  };
+
+  var NAMES = { name: "Name", intro: "Location + status", lede: "Intro", footer: "Footer" };
+
+  var contentEl = document.getElementById("site-content");
+  var app = document.getElementById("app");
+  var content = JSON.parse(contentEl.textContent);
+  var saved = "";
+  var editing = false;
+  var arranging = false;
+  var busy = false;
+  var bar = null;
+  var panel = null;
+  var drag = null;
+
+  function copy(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // Every block needs a place; anything missing (a new section, an older save)
+  // gets its default, or goes below everything else.
+  function ensureLayout() {
+    var L = content.layout || (content.layout = {});
+    var keys = blockKeys();
+    var bottom = 0;
+    keys.forEach(function (k) { if (L[k]) bottom = Math.max(bottom, L[k].y + 8); });
+    keys.forEach(function (k) {
+      if (!L[k]) {
+        L[k] = DEFAULT_LAYOUT[k] ? copy(DEFAULT_LAYOUT[k]) : { x: 49, y: bottom, w: 35 };
+        bottom = Math.max(bottom, L[k].y + 8);
+      }
+      if (!L[k].s) L[k].s = 1;
+    });
+    return L;
+  }
+
+  function blockKeys() {
+    var keys = ["name", "intro", "lede"];
+    content.sections.forEach(function (s, i) { keys.push("section-" + i); });
+    keys.push("footer");
+    return keys;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function field(tag, cls, path, value, placeholder, extra) {
+    return "<" + tag + (cls ? ' class="' + cls + '"' : "") +
+      ' data-path="' + esc(path) + '"' +
+      ' data-placeholder="' + esc(placeholder || "") + '"' +
+      (extra || "") + ">" + esc(value) + "</" + tag + ">";
+  }
+
+  // The status line breaks after a " · " separator; its last part is kept whole.
+  function statusHtml(text) {
+    var parts = String(text || "").split(" · ");
+    var last = parts.pop();
+    var head = parts.length ? esc(parts.join(" · ")) + " · " : "";
+    return head + '<span class="nowrap">' + esc(last) + "</span>";
+  }
+
+  function rowHtml(si, ri, row) {
+    var p = "sections." + si + ".rows." + ri + ".";
+    // Arranging shows blocks exactly as visitors see them, so sizes are true.
+    var typing = editing && !arranging;
+    var html = "<li>";
+    html += field("code", "", p + "label", row.label, "label");
+    html += "<span>";
+    html += field("strong", "", p + "bold", row.bold, "bold text");
+    if (typing || row.text) {
+      html += " " + field("span", "", p + "text", row.text, "rest of line");
+    }
+    html += "</span>";
+    if (typing) {
+      html += '<span class="row-tools">' +
+        field("span", "tag", p + "tag", row.tag, "tag") +
+        '<button type="button" data-remove="' + si + "." + ri + '" title="Remove this row">✕</button>' +
+        "</span>";
+    } else if (row.tag) {
+      html += '<span class="tag">' + esc(row.tag) + "</span>";
+    }
+    html += "</li>";
+    return html;
+  }
+
+  // The name, one span per letter, with each letter's place on the mountain
+  // baked in: a half-sine across the word, so the middle letters climb highest.
+  function nameHtml(text) {
+    var chars = String(text == null ? "" : text).split("");
+    var html = '<h1 class="name" data-path="name" data-placeholder="your name">';
+    chars.forEach(function (ch, i) {
+      var lift = (LIFT * Math.sin(Math.PI * (i + 0.5) / chars.length)).toFixed(3);
+      html += '<span class="ltr" style="--lift:' + lift + 'em">' + esc(ch) + "</span>";
+    });
+    return html + "</h1>";
+  }
+
+  function blockInner(key) {
+    var c = content, html = "";
+    if (key === "name") {
+      // Typing needs one plain field; everyone else gets the letters.
+      html = editing && !arranging ? field("h1", "name", "name", c.name, "your name") :
+        nameHtml(c.name);
+    } else if (key === "intro") {
+      html = field("p", "eyebrow", "eyebrow", c.eyebrow, "where you are");
+      html += '<p class="status-line"><span class="dot" aria-hidden="true"></span>' +
+        (editing && !arranging ? field("span", "", "status", c.status, "what you are looking for") : statusHtml(c.status)) +
+        "</p>";
+    } else if (key === "lede") {
+      html = field("p", "lede", "intro", c.intro, "a sentence about you");
+    } else if (key === "footer") {
+      html = '<div class="foot">';
+      html += editing && !arranging ? field("span", "", "footer.email", c.footer.email, "email") :
+        arranging ? "<span>" + esc(c.footer.email) + "</span>" :
+        '<a href="mailto:' + esc(c.footer.email) + '">' + esc(c.footer.email) + "</a>";
+      html += field("span", "", "footer.location", c.footer.location, "location");
+      c.links.forEach(function (l, i) {
+        var tag = editing ? "span" : "a";
+        var attrs = editing ? "" :
+          ' href="' + esc(l.href) + '"' +
+          (/^https?:/.test(l.href) ? ' target="_blank" rel="noopener noreferrer"' : "");
+        html += "<" + tag + ' class="foot-link"' + attrs + ">" +
+          '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+          (ICONS[l.icon] || ICONS.mail) + "</svg></span>" +
+          field("span", "", "links." + i + ".label", l.label, "label") +
+          "</" + tag + ">";
+      });
+      html += "</div>";
+    } else {
+      var si = +key.split("-")[1], s = c.sections[si];
+      html = '<section class="block">';
+      html += field("h2", "label", "sections." + si + ".title", s.title, "section name");
+      html += '<ul class="rows">';
+      s.rows.forEach(function (row, ri) { html += rowHtml(si, ri, row); });
+      html += "</ul>";
+      html += '<button type="button" class="add-row" data-add="' + si + '">+ Add row</button>';
+      html += "</section>";
+    }
+    return html;
+  }
+
+  function blockName(key) {
+    if (NAMES[key]) return NAMES[key];
+    var s = content.sections[+key.split("-")[1]];
+    return (s && s.title) || "Section";
+  }
+
+  function render() {
+    var L = ensureLayout();
+    // Reading order, which is also how narrow screens stack the blocks: the
+    // left side top to bottom, then the right side, with the footer always last.
+    function side(k) { return k === "footer" ? 2 : (L[k].x + L[k].w / 2 < COLS / 2 ? 0 : 1); }
+    var keys = blockKeys().sort(function (a, b) {
+      return (side(a) - side(b)) || (L[a].y - L[b].y) || (L[a].x - L[b].x);
+    });
+
+    var html = '<div class="canvas-wrap"><div class="canvas">';
+    keys.forEach(function (k, i) {
+      var p = L[k];
+      var tag = k === "footer" ? "footer" : k === "name" ? "header" : "div";
+      html += "<" + tag + ' class="blk" data-block="' + k + '"' +
+        (arranging ? ' tabindex="0" aria-label="' + esc(blockName(k)) + ': drag to move, arrow keys nudge, plus and minus resize"' : "") +
+        ' style="--x:' + p.x + ";--y:" + p.y + ";--w:" + p.w + ";--s:" + p.s + ";animation-delay:" + (i * 60) + 'ms">' +
+        blockInner(k) +
+        (editing ? '<span class="tagline" aria-hidden="true">' + esc(blockName(k)) + (p.s !== 1 ? " · " + Math.round(p.s * 100) + "%" : "") + '</span><span class="grip" data-grip aria-hidden="true"></span><span class="sizer" data-sizer aria-hidden="true"></span>' : "") +
+        "</" + tag + ">";
+    });
+    html += "</div></div>";
+    app.innerHTML = html;
+
+    var fields = app.querySelectorAll("[data-path]");
+    for (var i = 0; i < fields.length; i++) {
+      if (editing && !arranging) fields[i].setAttribute("contenteditable", "plaintext-only");
+      else fields[i].removeAttribute("contenteditable");
+    }
+    fit();
+  }
+
+  // ---- fitting the arrangement to the window ------------------------------
+
+  function fit() {
+    var body = document.body;
+    body.classList.add("arranged");
+    var cs = getComputedStyle(app);
+    var availW = app.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    // While editing, the page's larger bottom padding keeps the frame clear of the bar.
+    var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    // Grows on big windows as well as shrinking on small ones, so full screen is filled.
+    var scale = Math.min(MAX_SCALE, availW / (COLS * CELL), availH / (ROWS * CELL));
+    var arranged = window.innerWidth >= 900 && scale >= MIN_SCALE;
+    body.classList.toggle("arranged", arranged);
+    // Visitors get exactly one screen. Text editing may scroll, since its row
+    // buttons make sections taller than visitors will see them.
+    document.documentElement.classList.toggle("locked", arranged && (!editing || arranging));
+    if (!arranged) {
+      if (arranging) setMode(false);
+      updateArrangeButton();
+      return;
+    }
+    document.documentElement.style.setProperty("--scale", scale.toFixed(4));
+    updateHeight();
+    markClashes();
+    updateArrangeButton();
+  }
+
+  function updateHeight() {
+    document.documentElement.style.setProperty("--canvas-h", ROWS * CELL + "px");
+  }
+
+  // The lowest row a block's top can sit on and still end inside the frame.
+  function maxY(el) {
+    return Math.max(0, ROWS - Math.ceil(visualH(el) / CELL));
+  }
+
+  // A block's footprint on the frame, after its own size is applied.
+  function sizeOf(el) { return parseFloat(el.style.getPropertyValue("--s")) || 1; }
+  function visualH(el) { return el.offsetHeight * sizeOf(el); }
+
+  function currentScale() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scale")) || 1;
+  }
+
+  // Blocks that overlap, or run past the frame, turn red while arranging, so
+  // neither is ever silent.
+  function markClashes(force) {
+    var blocks = app.querySelectorAll(".blk");
+    var boxes = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      b.classList.remove("clash");
+      boxes.push({ el: b, l: b.offsetLeft, r: b.offsetLeft + b.offsetWidth * sizeOf(b), t: b.offsetTop, btm: b.offsetTop + visualH(b) });
+    }
+    if (!arranging && !force) return 0;
+    if (!document.body.classList.contains("arranged")) return 0;
+    var n = 0;
+    boxes.forEach(function (B) {
+      if (B.btm > ROWS * CELL + 1 || B.r > COLS * CELL + 1) {
+        if (arranging) B.el.classList.add("clash");
+        n++;
+      }
+    });
+    for (var a = 0; a < boxes.length; a++) {
+      for (var c = a + 1; c < boxes.length; c++) {
+        var A = boxes[a], B = boxes[c];
+        if (A.l < B.r && B.l < A.r && A.t < B.btm && B.t < A.btm) {
+          if (arranging) {
+            A.el.classList.add("clash");
+            B.el.classList.add("clash");
+          }
+          n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  // ---- editing ------------------------------------------------------------
+
+  function setPath(obj, path, value) {
+    var parts = path.split("."), o = obj;
+    for (var i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    o[parts[parts.length - 1]] = value;
+  }
+
+  function collect() {
+    if (!editing) return;
+    var fields = app.querySelectorAll("[data-path]");
+    for (var i = 0; i < fields.length; i++) {
+      var el = fields[i];
+      setPath(content, el.getAttribute("data-path"), el.textContent.replace(/\s+/g, " ").trim());
+    }
+    if (panel) {
+      var hrefs = panel.querySelectorAll("[data-href]");
+      for (var j = 0; j < hrefs.length; j++) {
+        content.links[+hrefs[j].getAttribute("data-href")].href = hrefs[j].value.trim();
+      }
+    }
+  }
+
+  function isDirty() {
+    collect();
+    return JSON.stringify(content) !== saved;
+  }
+
+  // Rebuild the whole document from the content above, so the saved page is the
+  // same page: same styles, same script, new words and positions.
+  function buildDoc() {
+    var head = '<meta charset="utf-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+      "<title>" + esc(content.name) + "</title>\n" +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500&display=swap">\n' +
+      '<style id="site-style">' + document.getElementById("site-style").textContent + "</style>";
+
+    // The reading view goes into the saved page too, so it has content before
+    // (or without) this script running.
+    var was = [editing, arranging];
+    var cls = document.body.classList;
+    editing = false;
+    arranging = false;
+    cls.remove("editing", "arranging");
+    render();
+    var markup = app.innerHTML;
+    // Overlaps are measured here, on the page as visitors will see it.
+    buildDoc.clashes = markClashes(true);
+    editing = was[0];
+    arranging = was[1];
+    cls.toggle("editing", editing);
+    cls.toggle("arranging", arranging);
+    render();
+
+    var body = '<div class="field" aria-hidden="true"></div>\n' +
+      '<div class="spot" aria-hidden="true"></div>\n' +
+      '<main class="page" id="app">' + markup + '</main>\n' +
+      OPEN + ' id="site-content" type="application/json">\n' +
+      JSON.stringify(content, null, 2).replace(/</g, "\\u003c") + "\n" + CLOSE + "\n" +
+      OPEN + ' id="site-script">' + document.getElementById("site-script").textContent + CLOSE;
+
+    return "<!doctype html>\n<html lang=\"en\">\n<head>\n" + head + "\n</head>\n<body>\n" + body + "\n</body>\n</html>\n";
+  }
+
+  function say(msg, bad) {
+    if (!bar) return;
+    var el = bar.querySelector(".say");
+    el.textContent = msg || "";
+    el.className = "say" + (bad ? " bad" : "");
+  }
+
+  // Questions are asked in the bar itself: the page may be shown in a frame
+  // where the browser's own confirm dialogs are switched off.
+  function ask(msg, yesLabel, onYes) {
+    var q = bar.querySelector(".ask");
+    q.querySelector(".ask-text").textContent = msg;
+    var yes = q.querySelector("[data-ask=yes]");
+    yes.textContent = yesLabel;
+    q.hidden = false;
+    say("");
+    q.onclick = function (e) {
+      var b = e.target.closest("[data-ask]");
+      if (!b) return;
+      q.hidden = true;
+      if (b.getAttribute("data-ask") === "yes") onYes();
+    };
+  }
+
+  function setBusy(on) {
+    busy = on;
+    var btns = bar.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = on;
+    if (!on) updateArrangeButton();
+  }
+
+  function setMode(arrange) {
+    collect();
+    arranging = arrange;
+    document.body.classList.toggle("arranging", arrange);
+    if (bar) {
+      bar.querySelector('[data-act="text"]').setAttribute("aria-pressed", String(!arrange));
+      bar.querySelector('[data-act="arrange"]').setAttribute("aria-pressed", String(arrange));
+      bar.querySelector('[data-act="reset"]').hidden = !arrange;
+      bar.querySelector(".hint").textContent = arrange ?
+        "Drag a block to move it. Side handle: width. Corner dot (or + and −): make it bigger or smaller. The frame is one screen." :
+        "Click any text to change it.";
+      if (panel) panel.hidden = true;
+      bar.querySelector('[data-act="links"]').setAttribute("aria-pressed", "false");
+    }
+    render();
+  }
+
+  function updateArrangeButton() {
+    if (!bar) return;
+    var btn = bar.querySelector('[data-act="arrange"]');
+    var wideEnough = document.body.classList.contains("arranged");
+    btn.disabled = busy || !wideEnough;
+    btn.title = wideEnough ? "" : "Make the window wider to arrange the page";
+  }
+
+  function openEditor() {
+    editing = true;
+    arranging = false;
+    document.body.classList.add("editing");
+    saved = JSON.stringify(content);
+    fillPanel();
+    render();
+    setMode(false);
+    bar.hidden = false;
+    document.querySelector(".edit-open").hidden = true;
+    say("");
+    fit();
+  }
+
+  function closeEditor(confirmed) {
+    if (!confirmed && isDirty()) {
+      ask("You have changes that aren't saved.", "Discard them", function () { closeEditor(true); });
+      return;
+    }
+    content = JSON.parse(saved);
+    editing = false;
+    arranging = false;
+    document.body.classList.remove("editing", "arranging");
+    panel.hidden = true;
+    bar.hidden = true;
+    document.querySelector(".edit-open").hidden = false;
+    render();
+  }
+
+  // Save by replacing the page file, which keeps this view running so editing
+  // can carry straight on. If this artifact can't take that form of save, fall
+  // back to publishing the whole page, which reloads the view afterwards.
+  function publishDoc(artifact, doc) {
+    return artifact.publish({ "index.html": doc }).then(function () {
+      return { reloads: false };
+    }, function (err) {
+      var code = err && err.code;
+      if (code === "capability_disabled" || code === "capability_removed" ||
+          code === "invalid_content" || code === "transform_error") {
+        return artifact.publish(doc).then(function () { return { reloads: true }; });
+      }
+      throw err;
+    });
+  }
+
+  function save(artifact, confirmed) {
+    if (busy) return;
+    collect();
+    var doc = buildDoc();
+    if (buildDoc.clashes && !confirmed) {
+      ask("Some blocks overlap or run off the screen, and visitors will see that.", "Save anyway", function () { save(artifact, true); });
+      return;
+    }
+    setBusy(true);
+    say("Saving…");
+    publishDoc(artifact, doc).then(function (r) {
+      saved = JSON.stringify(content);
+      if (r.reloads) {
+        say("Saved. The page is reloading to the new version…");
+        // Stays locked: a save from this view would now be a step behind.
+        window.setTimeout(function () {
+          say("Saved. Refresh the page to keep editing.");
+        }, 6000);
+        return;
+      }
+      say("Saved — this is the live page now.");
+      setBusy(false);
+    }).catch(function (err) {
+      var code = err && err.code;
+      if (code === "conflict") {
+        say("A newer version was saved somewhere else. The page is reloading to it.", true);
+        return; // stays locked until the reload
+      }
+      if (code === "not_writer" || code === "not_granted") say("This view can read the page but not save it.", true);
+      else if (code === "rate_limited") say("Too many saves just now. Wait a moment and try again.", true);
+      else if (code === "too_large") say("The page is too large to save.", true);
+      else say("Could not save" + (err && err.message ? ": " + err.message : "") + ".", true);
+      setBusy(false);
+    });
+  }
+
+  app.addEventListener("click", function (e) {
+    if (!editing || arranging) return;
+    var add = e.target.closest("[data-add]");
+    if (add) {
+      collect();
+      content.sections[+add.getAttribute("data-add")].rows.push({ label: "", bold: "", text: "", tag: "" });
+      render();
+      return;
+    }
+    var rm = e.target.closest("[data-remove]");
+    if (rm) {
+      collect();
+      var at = rm.getAttribute("data-remove").split(".");
+      content.sections[+at[0]].rows.splice(+at[1], 1);
+      render();
+    }
+  });
+
+  // Paste as plain text, so pasted formatting never lands in the page.
+  app.addEventListener("paste", function (e) {
+    if (!editing) return;
+    var t = e.target.closest("[contenteditable]");
+    if (!t) return;
+    e.preventDefault();
+    document.execCommand("insertText", false, (e.clipboardData || window.clipboardData).getData("text"));
+  });
+
+  // ---- arranging: drag, widen, nudge --------------------------------------
+
+  function place(el, p) {
+    el.style.setProperty("--x", p.x);
+    el.style.setProperty("--y", p.y);
+    el.style.setProperty("--w", p.w);
+    el.style.setProperty("--s", p.s);
+    var t = el.querySelector(".tagline");
+    if (t) t.textContent = blockName(el.getAttribute("data-block")) + (p.s !== 1 ? " · " + Math.round(p.s * 100) + "%" : "");
+  }
+
+  // Resizing keeps the block's proportions: its width follows its size.
+  function resize(p, start, size) {
+    size = Math.round(clamp(size, MIN_S, MAX_S) / S_STEP) * S_STEP;
+    size = +size.toFixed(2);
+    var w = Math.round(start.w * size / start.s);
+    if (w > COLS - p.x || w < MIN_W) return;
+    p.s = size;
+    p.w = w;
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  app.addEventListener("pointerdown", function (e) {
+    if (!arranging || e.button > 0) return;
+    var el = e.target.closest(".blk");
+    if (!el) return;
+    e.preventDefault();
+    var key = el.getAttribute("data-block");
+    drag = {
+      el: el,
+      key: key,
+      mode: e.target.closest("[data-sizer]") ? "size" : e.target.closest("[data-grip]") ? "width" : "move",
+      sx: e.clientX,
+      sy: e.clientY,
+      start: copy(content.layout[key]),
+      scale: currentScale()
+    };
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+  });
+
+  app.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    var dx = Math.round((e.clientX - drag.sx) / drag.scale / CELL);
+    var dy = Math.round((e.clientY - drag.sy) / drag.scale / CELL);
+    var s = drag.start, p = content.layout[drag.key];
+    if (drag.mode === "move") {
+      p.x = clamp(s.x + dx, 0, COLS - s.w);
+      p.y = clamp(s.y + dy, 0, maxY(drag.el));
+    } else if (drag.mode === "size") {
+      // How far the corner moved, as a share of the block's width.
+      var px = (e.clientX - drag.sx) / drag.scale;
+      resize(p, s, s.s * (s.w * CELL + px) / (s.w * CELL));
+    } else {
+      p.w = clamp(s.w + dx, MIN_W, COLS - s.x);
+    }
+    place(drag.el, p);
+    updateHeight();
+    markClashes();
+  });
+
+  function endDrag() {
+    if (!drag) return;
+    var moved = JSON.stringify(drag.start) !== JSON.stringify(content.layout[drag.key]);
+    var key = drag.key;
+    drag.el.classList.remove("dragging");
+    drag = null;
+    if (moved) {
+      render();
+      var el = app.querySelector('[data-block="' + key + '"]');
+      if (el) el.focus({ preventScroll: true });
+      noteClashes();
+    }
+  }
+  app.addEventListener("pointerup", endDrag);
+  app.addEventListener("pointercancel", endDrag);
+
+  // Arrow keys nudge the focused block one cell; with Shift, four.
+  app.addEventListener("keydown", function (e) {
+    if (!arranging) return;
+    var el = e.target.closest && e.target.closest(".blk");
+    if (!el) return;
+    var step = e.shiftKey ? 4 : 1;
+    var key = el.getAttribute("data-block"), p = content.layout[key];
+    // + and − make the focused block bigger or smaller.
+    var grow = { "+": 1, "=": 1, "-": -1, "_": -1 }[e.key];
+    if (grow) {
+      e.preventDefault();
+      resize(p, copy(p), p.s + grow * S_STEP * step);
+      render();
+      app.querySelector('[data-block="' + key + '"]').focus({ preventScroll: true });
+      noteClashes();
+      return;
+    }
+    var d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    p.x = clamp(p.x + d[0], 0, COLS - p.w);
+    p.y = clamp(p.y + d[1], 0, maxY(el));
+    render();
+    app.querySelector('[data-block="' + key + '"]').focus({ preventScroll: true });
+    noteClashes();
+  });
+
+  function noteClashes() {
+    var n = markClashes();
+    say(n ? "Red blocks overlap or run off the screen — move them before saving." : "", n > 0);
+  }
+
+  // ---- editor chrome ------------------------------------------------------
+
+  function fillPanel() {
+    var html = "";
+    content.links.forEach(function (l, i) {
+      html += "<label>" + esc(l.label) + '<input type="text" data-href="' + i +
+        '" value="' + esc(l.href) + '"></label>';
+    });
+    panel.innerHTML = html;
+  }
+
+  function buildEditorUI(artifact) {
+    var open = document.createElement("button");
+    open.type = "button";
+    open.className = "edit-open";
+    open.textContent = "Edit page";
+    document.body.appendChild(open);
+
+    panel = document.createElement("div");
+    panel.className = "link-panel";
+    panel.hidden = true;
+    document.body.appendChild(panel);
+
+    bar = document.createElement("div");
+    bar.className = "bar";
+    bar.hidden = true;
+    bar.innerHTML =
+      '<span class="modes">' +
+        '<button type="button" data-act="text" aria-pressed="true">Text</button>' +
+        '<button type="button" data-act="arrange" aria-pressed="false">Arrange</button>' +
+      "</span>" +
+      '<button type="button" data-act="links" aria-pressed="false">Link URLs</button>' +
+      '<button type="button" data-act="reset" hidden>Reset layout</button>' +
+      '<span class="hint"></span>' +
+      '<span class="say"></span>' +
+      '<span class="ask" hidden><span class="ask-text"></span> ' +
+        '<button type="button" data-ask="yes">Yes</button> ' +
+        '<button type="button" data-ask="no">Keep editing</button></span>' +
+      '<span class="spacer"></span>' +
+      '<button type="button" data-act="close">Close</button>' +
+      '<button type="button" class="primary" data-act="save">Save</button>';
+    document.body.appendChild(bar);
+
+    open.addEventListener("click", openEditor);
+    bar.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-act]");
+      if (!b || b.disabled) return;
+      var act = b.getAttribute("data-act");
+      if (act === "text") setMode(false);
+      else if (act === "arrange") setMode(true);
+      else if (act === "links") {
+        panel.hidden = !panel.hidden;
+        b.setAttribute("aria-pressed", String(!panel.hidden));
+      } else if (act === "reset") {
+        ask("Put every block back where it started?", "Reset", function () {
+          content.layout = copy(DEFAULT_LAYOUT);
+          render();
+          noteClashes();
+        });
+      } else if (act === "close") closeEditor();
+      else if (act === "save") save(artifact);
+    });
+  }
+
+  render();
+
+  var resizeFrame = null;
+  window.addEventListener("resize", function () {
+    if (resizeFrame !== null) return;
+    resizeFrame = window.requestAnimationFrame(function () { resizeFrame = null; fit(); });
+  });
+  // Web fonts change text heights once they arrive; re-measure then.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+  if (window.claude && typeof window.claude.use === "function") {
+    Promise.all([claude.use("artifact"), claude.use("user")]).then(function (r) {
+      var artifact = r[0], user = r[1];
+      if (!artifact || !user) return;
+      return Promise.all([user.canEdit(), user.isOwner()]).then(function (may) {
+        if (!may[0] && !may[1]) return;
+        buildEditorUI(artifact);
+      });
+    }).catch(function () { /* no editor: the page still reads normally */ });
+  }
+
+  // ---- the name's mountain ------------------------------------------------
+  // Sweeping the pointer across the name lifts each letter as it is passed, and
+  // each falls back on its own a moment later, so the word peaks and settles.
+  // Pointer-driven, so touch screens leave the name flat.
+  var fine = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+  function lift(el) {
+    el.classList.add("up");
+    window.clearTimeout(el._drop);
+    el._drop = window.setTimeout(function () { el.classList.remove("up"); }, HOLD);
+  }
+
+  var lastLetter = -1;
+
+  app.addEventListener("pointermove", function (e) {
+    if (editing || arranging || !fine.matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var h = e.target.closest(".name");
+    if (!h) { lastLetter = -1; return; }
+    var letters = h.querySelectorAll(".ltr");
+    if (!letters.length) return;
+
+    // Which letter is under the pointer, or the nearest one if it is between two.
+    var at = -1, best = Infinity;
+    for (var i = 0; i < letters.length; i++) {
+      var r = letters[i].getBoundingClientRect();
+      var d = e.clientX < r.left ? r.left - e.clientX : e.clientX > r.right ? e.clientX - r.right : 0;
+      if (d < best) { best = d; at = i; }
+      if (d === 0) break;
+    }
+    if (at < 0) return;
+    if (at === lastLetter) {
+      // Still on the same letter: only worth lifting again once it has settled,
+      // which is what happens when the sweep turns around after a pause.
+      if (!letters[at].classList.contains("up")) lift(letters[at]);
+      return;
+    }
+
+    // A fast sweep skips letters; lift the ones it jumped over too, in order,
+    // so the rise always travels the way the pointer did.
+    var from = lastLetter < 0 ? at : lastLetter + (at > lastLetter ? 1 : -1);
+    var step = at >= from ? 1 : -1;
+    var n = 0;
+    for (var j = from; step > 0 ? j <= at : j >= at; j += step) {
+      (function (el, delay) {
+        if (!delay) return lift(el);
+        window.setTimeout(function () { lift(el); }, delay);
+      })(letters[j], n * 30);
+      n++;
+    }
+    lastLetter = at;
+  }, { passive: true });
+
+  app.addEventListener("pointerleave", function () { lastLetter = -1; });
+
+  // ---- cursor light -------------------------------------------------------
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var spot = document.querySelector(".spot");
+  var fieldEl = document.querySelector(".field");
+  var frame = null;
+  var last = { x: 0, y: 0 };
+
+  function apply() {
+    frame = null;
+    spot.style.setProperty("--cx", last.x + "px");
+    spot.style.setProperty("--cy", last.y + "px");
+    if (reduced) return;
+    var dx = (last.x / window.innerWidth - 0.5) * -20;
+    var dy = (last.y / window.innerHeight - 0.5) * -20;
+    fieldEl.style.setProperty("--px", dx.toFixed(2) + "px");
+    fieldEl.style.setProperty("--py", dy.toFixed(2) + "px");
+  }
+
+  window.addEventListener("pointermove", function (e) {
+    last.x = e.clientX;
+    last.y = e.clientY;
+    spot.classList.add("on");
+    if (frame === null) frame = window.requestAnimationFrame(apply);
+  }, { passive: true });
+
+  document.documentElement.addEventListener("pointerleave", function () {
+    spot.classList.remove("on");
+  });
+})();
+</script>
+</body>
+</html>
