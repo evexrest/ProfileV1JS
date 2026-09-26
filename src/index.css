@@ -128,8 +128,11 @@
   position: relative;
   z-index: 1;
   padding: 3rem 1.5rem 3rem;
-  /* The mountain behind the name spills past the edges; never let it widen the page. */
-  overflow-x: clip;
+  /* The mountain behind the name runs to the page's edges and bottom; never let
+     it widen or lengthen the page. At least one screen tall, so it reaches the
+     bottom of the window even when the content is shorter. */
+  overflow: clip;
+  min-height: 100vh;
 }
 .canvas { display: flex; flex-direction: column; gap: 1.75rem; }
 .blk { position: relative; min-width: 0; }
