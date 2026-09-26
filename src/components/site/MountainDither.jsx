@@ -4,18 +4,13 @@ import { useEffect, useRef } from "react"
 // the points each letter reaches when it jumps, so a sweep across the name
 // lands every letter on the outline.
 //
-// Below the name the range keeps going, fainter, all the way to the bottom of
-// the page, its slopes spreading out toward the edges.
-//
 // Drawn on a canvas at one canvas pixel per dither cell, then stretched with
 // `image-rendering: pixelated`, so the cells stay crisp squares at any scale.
 
 const CELL = 0.028 // em per dither cell
 const PAD_X = 1.1 // em of foothills either side of the word
 const HEAD = 0.45 // em of air above the summit
-const FOOT = 0.22 // em below the baseline, where the main mountain fades out
-const EXT = 0.45 // strength of the range below that, running on to the bottom of the page
-const DROP = 0.45 // how steeply the outer slopes keep falling away, em per em
+const FOOT = 0.22 // em below the baseline, where the mountain fades out
 
 // 8x8 ordered-dither thresholds, 0..1.
 const BAYER = [
@@ -111,14 +106,7 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
       // A sharp, uneven outline. Each letter's landing spot is a point on
       // it; between letters there is a notch, or now and then a crag, and the
       // shoulders either side are lopsided. Seeded, so it is the same every load.
-      // Past the shoulders, the outer slopes keep falling away, with a knoll
-      // or two on the way, until they run off the edge of the page.
-      const far = 60
-      const pts = [
-        [-PAD_X - far, rideY - FOOT - 0.1 - far * DROP],
-        [-3.1, rideY - 0.82], [-2.6, rideY - 0.86], [-1.8, rideY - 0.42], [-1.5, rideY - 0.5],
-        [-PAD_X, rideY - FOOT - 0.1], [-0.74, rideY - 0.19], [-0.52, rideY - 0.02], [-0.3, rideY - 0.13],
-      ]
+      const pts = [[-PAD_X, rideY - FOOT - 0.1], [-0.74, rideY - 0.19], [-0.52, rideY - 0.02], [-0.3, rideY - 0.13]]
       tops.forEach((t, i) => {
         pts.push(t)
         const n = tops[i + 1]
@@ -132,8 +120,6 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
       pts.push(
         [wordW + 0.22, rideY - 0.06], [wordW + 0.42, rideY - 0.25], [wordW + 0.6, rideY - 0.12],
         [wordW + 0.86, rideY - 0.31], [wordW + PAD_X, rideY - FOOT - 0.1],
-        [wordW + 1.6, rideY - 0.55], [wordW + 2.0, rideY - 0.47], [wordW + 2.9, rideY - 0.95],
-        [wordW + PAD_X + far, rideY - FOOT - 0.1 - far * DROP],
       )
       let peak = tops[0]
       tops.forEach((t) => { if (t[1] > peak[1]) peak = t })
@@ -153,23 +139,12 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
       function backAt(x) {
         const top = peak[1]
         const crags = -Math.abs(noise(x * 5) - 0.5) * 0.3
-        // Falls away past the ends of the word too, rather than running flat.
-        const fall = Math.max(0, Math.abs(x - wordW / 2) - wordW * 0.75) * DROP
-        return rideY - 0.2 + crags - fall + top * 0.86 * gauss(x - peak[0] + wordW * 0.52, wordW * 0.15) +
+        return rideY - 0.2 + crags + top * 0.86 * gauss(x - peak[0] + wordW * 0.52, wordW * 0.15) +
           top * 0.74 * gauss(x - peak[0] - wordW * 0.5, wordW * 0.14)
       }
 
-      // The canvas reaches the page's edges and bottom. Measured on screen and
-      // turned back into this block's own units, since the block is scaled.
-      // A little over, to cover the rise-in animation; the page clips the rest.
-      const page = wrap.closest(".page") || document.body
-      const wr = wrap.getBoundingClientRect()
-      const pr = page.getBoundingClientRect()
-      const k = wr.width / wrap.offsetWidth || 1
-      const left = Math.min(-PAD_X, ((pr.left - wr.left) / k - x0) / em - 0.3)
-      const right = Math.max(wordW + PAD_X, ((pr.right - wr.left) / k - x0) / em + 0.3)
-      const bottomY = Math.min(-FOOT, -(((pr.bottom - wr.top) / k - baseY) / em) - 0.3)
-      const topY = peak[1] + HEAD
+      const left = -PAD_X, right = wordW + PAD_X
+      const topY = peak[1] + HEAD, bottomY = -FOOT
       const cols = Math.ceil((right - left) / CELL)
       const rows = Math.ceil((topY - bottomY) / CELL)
       el.width = cols
@@ -178,11 +153,6 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
       el.style.top = baseY - topY * em + "px"
       el.style.width = cols * CELL * em + "px"
       el.style.height = rows * CELL * em + "px"
-
-      // How far down a slope a point is, 0 at the ridge and 1 at the floor.
-      function share(ridge, y, floor) {
-        return Math.min(1, Math.max(0, (ridge - y) / Math.max(0.05, ridge - floor)))
-      }
 
       const ctx = el.getContext("2d")
       const img = ctx.createImageData(cols, rows)
@@ -193,16 +163,12 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
         const b = backAt(x)
         for (let rw = 0; rw < rows; rw++) {
           const y = topY - (rw + 0.5) * CELL
+          const u = Math.min(1, Math.max(0, (r - y) / Math.max(0.05, r - bottomY)))
+          const ub = Math.min(1, Math.max(0, (b - y) / Math.max(0.05, b - bottomY)))
           const d = r - y
-          const at = { d, lit: d >= 0 && litAt(x, d), high: r > peak[1] * 0.72, back: b - y }
-          // The main mountain, exactly as it was: fading out just under the name.
-          let t = 0
-          if (y > -FOOT) {
-            const u = share(r, y, -FOOT)
-            t = shade({ ...at, u, ub: share(b, y, -FOOT) }) * Math.min(1, (y + FOOT) / 0.2)
-          }
-          // The range carrying on to the bottom of the page, fainter.
-          t = Math.max(t, EXT * shade({ ...at, u: share(r, y, bottomY), ub: share(b, y, bottomY) }))
+          let t = shade({ d, u, lit: d >= 0 && litAt(x, d), high: r > peak[1] * 0.72, back: b - y, ub })
+          // Fade out toward the bottom edge so there is no hard floor.
+          t *= Math.min(1, (y - bottomY) / 0.2)
           if (t > BAYER[(rw % 8) * 8 + (c % 8)]) {
             const i = (rw * cols + c) * 4
             img.data[i] = 241
@@ -218,8 +184,6 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
     draw()
     const ro = new ResizeObserver(draw)
     ro.observe(wrap)
-    const page = wrap.closest(".page")
-    if (page) ro.observe(page)
     window.addEventListener("resize", draw)
     document.fonts?.ready.then(draw)
     return () => {
