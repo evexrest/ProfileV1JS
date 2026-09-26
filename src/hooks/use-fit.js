@@ -50,9 +50,11 @@ export function useFit(pageRef) {
 }
 
 // Reading order, which is also how narrow screens stack the blocks: the left
-// side top to bottom, then the right side, with the footer always last.
+// side top to bottom, then the right side, then the footer, then the mountain
+// picker.
+const LAST = { footer: 2, mountain: 3 }
 export function readingOrder(keys, layout) {
-  const side = (k) => (k === "footer" ? 2 : layout[k].x + layout[k].w / 2 < COLS / 2 ? 0 : 1)
+  const side = (k) => LAST[k] ?? (layout[k].x + layout[k].w / 2 < COLS / 2 ? 0 : 1)
   return [...keys].sort(
     (a, b) => side(a) - side(b) || layout[a].y - layout[b].y || layout[a].x - layout[b].x
   )

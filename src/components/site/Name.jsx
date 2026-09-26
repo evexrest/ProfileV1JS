@@ -1,5 +1,7 @@
 import { useRef } from "react"
 
+import { MountainDither } from "@/components/site/MountainDither"
+
 const LIFT = 1.3 // how far the middle letter of the name rises, in em
 const HOLD = 950 // ms a letter stays up after the pointer passes it
 
@@ -11,8 +13,9 @@ const HOLD = 950 // ms a letter stays up after the pointer passes it
 // Pointer-driven, so touch screens leave the name flat. Letters are lifted by
 // toggling a class directly rather than through React state, so a sweep never
 // re-renders anything.
-export function Name({ text }) {
+export function Name({ text, mountain }) {
   const letters = useRef([])
+  const baseline = useRef(null)
   const last = useRef(-1)
   const chars = String(text ?? "").split("")
 
@@ -60,21 +63,26 @@ export function Name({ text }) {
   }
 
   return (
-    <h1
-      className="m-0 -ml-[0.03em] font-display text-[length:var(--name-size)] leading-[0.95] font-light tracking-[0.005em]"
-      onPointerMove={onPointerMove}
-      onPointerLeave={() => { last.current = -1 }}
-    >
-      {chars.map((ch, i) => (
-        <span
-          key={i}
-          ref={(el) => { letters.current[i] = el }}
-          className="ltr"
-          style={{ "--lift": (LIFT * Math.sin((Math.PI * (i + 0.5)) / chars.length)).toFixed(3) + "em" }}
-        >
-          {ch}
-        </span>
-      ))}
-    </h1>
+    <div className="relative isolate">
+      {mountain && <MountainDither letters={letters} baseline={baseline} style={mountain} />}
+      <h1
+        className="m-0 -ml-[0.03em] font-display text-[length:var(--name-size)] leading-[0.95] font-light tracking-[0.005em]"
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => { last.current = -1 }}
+      >
+        {chars.map((ch, i) => (
+          <span
+            key={i}
+            ref={(el) => { letters.current[i] = el }}
+            className="ltr"
+            style={{ "--lift": (LIFT * Math.sin((Math.PI * (i + 0.5)) / chars.length)).toFixed(3) + "em" }}
+          >
+            {ch}
+          </span>
+        ))}
+        {/* An empty inline box sits on the baseline, which is where the mountain is measured from. */}
+        <span ref={baseline} aria-hidden="true" className="inline-block h-0 w-0" />
+      </h1>
+    </div>
   )
 }

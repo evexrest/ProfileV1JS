@@ -128,6 +128,8 @@
   position: relative;
   z-index: 1;
   padding: 3rem 1.5rem 3rem;
+  /* The mountain behind the name spills past the edges; never let it widen the page. */
+  overflow-x: clip;
 }
 .canvas { display: flex; flex-direction: column; gap: 1.75rem; }
 .blk { position: relative; min-width: 0; }
