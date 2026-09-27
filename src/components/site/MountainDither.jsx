@@ -12,6 +12,14 @@ const PAD_X = 1.1 // em of foothills either side of the word
 const HEAD = 0.45 // em of air above the summit
 const FOOT = 0.22 // em below the baseline, where the mountain fades out
 
+// The sheen that passes over the mountain now and then.
+const SHEEN_PERIOD = 11000 // ms from the start of one sweep to the next
+const SHEEN_SWEEP = 4200 // ms a sweep takes to cross
+const SHEEN_W = 0.45 // em, half-width of the band of light
+const SHEEN_GAIN = 0.7 // how much denser the dither gets at the band's centre
+const SHEEN_LEAN = 0.35 // em the band leans right per em of height
+const SHEEN_FPS = 30 // dither moves in whole cells, so more frames buy nothing
+
 // 8x8 ordered-dither thresholds, 0..1.
 const BAYER = [
   0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26,
@@ -154,8 +162,8 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
       el.style.width = cols * CELL * em + "px"
       el.style.height = rows * CELL * em + "px"
 
-      const ctx = el.getContext("2d")
-      const img = ctx.createImageData(cols, rows)
+      // Each cell's density, worked out once per layout. Frames only re-threshold it.
+      const density = new Float32Array(cols * rows)
       const shade = STYLES[style] || STYLES.ridge
       for (let c = 0; c < cols; c++) {
         const x = left + (c + 0.5) * CELL
@@ -169,24 +177,82 @@ export function MountainDither({ letters, baseline, style = "ridge" }) {
           let t = shade({ d, u, lit: d >= 0 && litAt(x, d), high: r > peak[1] * 0.72, back: b - y, ub })
           // Fade out toward the bottom edge so there is no hard floor.
           t *= Math.min(1, (y - bottomY) / 0.2)
-          if (t > BAYER[(rw % 8) * 8 + (c % 8)]) {
-            const i = (rw * cols + c) * 4
-            img.data[i] = 241
-            img.data[i + 1] = 243
-            img.data[i + 2] = 245
-            img.data[i + 3] = 255
+          density[rw * cols + c] = t
+        }
+      }
+      const ctx = el.getContext("2d")
+      field = { ctx, img: ctx.createImageData(cols, rows), density, cols, rows, left, right, topY }
+      paint(null)
+    }
+
+    // The sheen: a soft diagonal band of light that glides across the mountain
+    // left to right, then rests. It only thickens cells the mountain already
+    // has, so the outline never moves and no new cells appear.
+    let field = null
+    function paint(band) {
+      if (!field) return
+      const { ctx, img, density, cols, rows, left, topY } = field
+      const px = img.data
+      for (let rw = 0; rw < rows; rw++) {
+        const y = topY - (rw + 0.5) * CELL
+        for (let c = 0; c < cols; c++) {
+          const i = rw * cols + c
+          let t = density[i]
+          if (t > 0 && band !== null) {
+            // Leans with the slope: higher up, the band is further along.
+            const off = left + (c + 0.5) * CELL - band - y * SHEEN_LEAN
+            t *= 1 + SHEEN_GAIN * Math.exp(-(off * off) / (2 * SHEEN_W * SHEEN_W))
           }
+          const on = t > BAYER[(rw % 8) * 8 + (c % 8)]
+          const j = i * 4
+          px[j] = 241
+          px[j + 1] = 243
+          px[j + 2] = 245
+          px[j + 3] = on ? 255 : 0
         }
       }
       ctx.putImageData(img, 0, 0)
     }
 
+    let frame = null
+    let lastPaint = 0
+    let resting = true
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)")
+    function tick(now) {
+      frame = window.requestAnimationFrame(tick)
+      if (!field) return
+      const p = (now % SHEEN_PERIOD) / SHEEN_SWEEP
+      if (p >= 1) {
+        // Between sweeps: put the plain mountain back once, then do nothing.
+        if (!resting) { resting = true; paint(null) }
+        return
+      }
+      if (now - lastPaint < 1000 / SHEEN_FPS) return
+      lastPaint = now
+      resting = false
+      // Eases in and out, and starts and ends fully off the mountain.
+      const e = p * p * (3 - 2 * p)
+      const from = field.left - 3 * SHEEN_W
+      const to = field.right + 3 * SHEEN_W + (field.topY * SHEEN_LEAN)
+      paint(from + (to - from) * e)
+    }
+    function setMotion() {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      frame = null
+      if (still.matches) { resting = true; paint(null) }
+      else frame = window.requestAnimationFrame(tick)
+    }
+
     draw()
+    setMotion()
+    still.addEventListener("change", setMotion)
     const ro = new ResizeObserver(draw)
     ro.observe(wrap)
     window.addEventListener("resize", draw)
     document.fonts?.ready.then(draw)
     return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      still.removeEventListener("change", setMotion)
       ro.disconnect()
       window.removeEventListener("resize", draw)
     }
