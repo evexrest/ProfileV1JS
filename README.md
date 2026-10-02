@@ -1,4 +1,4 @@
-# ProfileV1Java
+# ProfileV1JS
 
 Everest's personal site, rebuilt in React (JavaScript) with [shadcn/ui](https://ui.shadcn.com).
 It started as a duplicate of [ProfileV1](https://github.com/evexrest/ProfileV1), the plain-HTML
