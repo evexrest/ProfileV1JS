@@ -1,9 +1,12 @@
+import { ArrowUpRight } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
 // A section is bare type on black: a label running into a hairline, then rows.
 // Each row carries its own hairline so the line slides with the row on hover,
 // with a pixel of padding under it standing in for the border it replaces.
+// A row with an "href" has its name as a link that opens in a new tab.
 export function Section({ title, rows }) {
   return (
     <section className="flex flex-col gap-[0.7rem]">
@@ -22,7 +25,19 @@ export function Section({ title, rows }) {
               {row.label}
             </code>
             <span className="text-foreground">
-              <strong className="font-medium text-foreground">{row.bold}</strong>
+              {row.href ? (
+                <a
+                  href={row.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-baseline gap-1 font-medium text-foreground no-underline hover:text-primary"
+                >
+                  {row.bold}
+                  <ArrowUpRight aria-hidden="true" className="size-3 self-center text-faint" />
+                </a>
+              ) : (
+                <strong className="font-medium text-foreground">{row.bold}</strong>
+              )}
               {row.text ? " " + row.text : null}
             </span>
             {row.tag ? (
