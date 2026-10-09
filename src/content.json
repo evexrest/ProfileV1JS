@@ -3,6 +3,12 @@
   "eyebrow": "Toronto / Boston · First year",
   "status": "Open to summer 2027 roles · Boston or remote",
   "intro": "I study economics and computer science at the University of Toronto, actively learning about tech, finance, and chasing startups and VC.",
+  "photo": {
+    "src": "/me.jpg",
+    "alt": "Everest, seen from behind, looking at the Toronto skyline at night",
+    "caption": "fig. 01 — toronto",
+    "tilt": 3
+  },
   "links": [
     {
       "icon": "mail",
@@ -96,6 +102,12 @@
       "y": 53,
       "w": 30,
       "s": 0.9
+    },
+    "photo": {
+      "x": 74,
+      "y": 5,
+      "w": 16,
+      "s": 1
     }
   }
 }
