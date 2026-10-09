@@ -10,7 +10,7 @@ version, which is kept here unchanged in `original/index.html` for comparison.
 - `src/components/site/` — the page's blocks: `Name` (the mountain), `Intro`, `Section`, `Footer`, `Portrait` (the photo and the hexagon atom).
 - `src/components/ui/` — the shadcn components they are built from: `Badge`, `Separator`, `Button`.
 - `src/hooks/` — the scale-to-fit layout and the cursor light.
-- `public/me.png` — the photo, cut out. Its place is under "photo" in `src/content.json`.
+- `public/me.jpg` — the photo. Its tilt and place are under "photo" in `src/content.json`.
 - `src/index.css` — colours, fonts, and the animations.
 
 ## Running it

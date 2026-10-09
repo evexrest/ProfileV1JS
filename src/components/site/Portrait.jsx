@@ -26,12 +26,14 @@ function HexAtom() {
   )
 }
 
-// Me, cut out of the photo so the page shows through, with the atom beside me.
-export function Portrait({ src, alt }) {
+// The photo, hung a little crooked with no frame, and the atom beside it.
+export function Portrait({ src, alt, tilt = 3 }) {
   return (
-    <div className="portrait flex w-48 max-w-full items-center justify-between in-[.arranged]:w-full">
+    <div className="portrait flex max-w-full items-center gap-6">
       <HexAtom />
-      <img src={src} alt={alt} className="h-[14.5rem] w-auto" />
+      <div className="portrait-photo aspect-[4/5] w-48 overflow-hidden" style={{ "--tilt": tilt + "deg" }}>
+        <img src={src} alt={alt} className="size-full object-cover" />
+      </div>
     </div>
   )
 }

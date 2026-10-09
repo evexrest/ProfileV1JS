@@ -4,8 +4,9 @@
   "status": "Open to summer 2027 roles · Boston or remote",
   "intro": "I study economics and computer science at the University of Toronto, actively learning about tech, finance, and chasing startups and VC.",
   "photo": {
-    "src": "/me.png",
-    "alt": "Everest, seen from behind"
+    "src": "/me.jpg",
+    "alt": "Everest, seen from behind, looking at the Toronto skyline at night",
+    "tilt": 3
   },
   "links": [
     {
@@ -102,9 +103,9 @@
       "s": 0.9
     },
     "photo": {
-      "x": 74,
+      "x": 66,
       "y": 5,
-      "w": 16,
+      "w": 26,
       "s": 1
     }
   }
