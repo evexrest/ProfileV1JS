@@ -45,6 +45,33 @@
       "title": "Building",
       "rows": [
         {
+          "label": "Extension",
+          "bold": "Claude Themes",
+          "text": "",
+          "tag": "GitHub",
+          "href": "https://github.com/evexrest/claude-themes"
+        },
+        {
+          "label": "Web app",
+          "bold": "Doodle Gallery",
+          "text": "",
+          "tag": "Private"
+        },
+        {
+          "label": "Tool",
+          "bold": "Rate History",
+          "text": "",
+          "tag": "GitHub",
+          "href": "https://github.com/evexrest/rate-history"
+        },
+        {
+          "label": "Tool",
+          "bold": "Currency Tracker",
+          "text": "",
+          "tag": "GitHub",
+          "href": "https://github.com/evexrest/currency-tracker"
+        },
+        {
           "label": "Tool",
           "bold": "Daily Desk Note",
           "text": "",
