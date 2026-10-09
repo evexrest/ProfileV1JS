@@ -26,14 +26,13 @@ function HexAtom() {
   )
 }
 
-// The photo, hung a little crooked with no frame, and the atom beside it.
+// The photo, whole and unframed, hung a little crooked. The atom waits out
+// of sight and shows on the photo's top right corner while the pointer is on it.
 export function Portrait({ src, alt, tilt = 3 }) {
   return (
-    <div className="portrait flex max-w-full items-center gap-6">
+    <div className="portrait relative w-72 max-w-full in-[.arranged]:w-full" style={{ "--tilt": tilt + "deg" }}>
+      <img src={src} alt={alt} className="block h-auto w-full" />
       <HexAtom />
-      <div className="portrait-photo aspect-[4/5] w-48 overflow-hidden" style={{ "--tilt": tilt + "deg" }}>
-        <img src={src} alt={alt} className="size-full object-cover" />
-      </div>
     </div>
   )
 }
