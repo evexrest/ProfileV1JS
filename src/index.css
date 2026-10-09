@@ -180,22 +180,65 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 }
 
 /* ---- the photo ------------------------------------------------------------ */
-.polaroid figure {
-  rotate: var(--tilt, 3deg);
-  /* The same springy overshoot the name's letters rise with. */
-  transition: rotate 520ms cubic-bezier(0.18, 1.6, 0.42, 1), scale 520ms cubic-bezier(0.18, 1.6, 0.42, 1);
-}
+.portrait img { transition: scale 520ms cubic-bezier(0.18, 1.6, 0.42, 1); }
 @media (hover: hover) and (pointer: fine) {
-  .polaroid:hover figure { rotate: 0deg; scale: 1.05; }
+  .portrait:hover img { scale: 1.05; }
 }
+
+.hexatom {
+  position: relative;
+  width: 5.5rem;
+  aspect-ratio: 1;
+  color: var(--accent-teal);
+  filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.55));
+}
+.hexatom svg { position: absolute; inset: 0; overflow: visible; }
+.hexatom polygon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.hexatom-shell { opacity: 0.35; }
+.hexatom-orbit { position: absolute; inset: 12%; rotate: var(--turn); opacity: 0.6; }
+.hexatom-ring { transform: rotateX(68deg); }
+/* Each orbit is drawn as a broken line, so its lit stretches travel round it. */
+.hexatom-ring polygon { stroke-dasharray: 70 68; }
+.hexatom-core {
+  position: absolute;
+  inset: 44%;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .polaroid { animation: drift 6s ease-in-out infinite; }
+  .portrait img { animation: drift 6s ease-in-out infinite; }
   @keyframes drift {
     50% { transform: translateY(-7px); }
   }
+
+  .hexatom-shell { animation: vanish 5.4s ease-in-out infinite; }
+  .hexatom-orbit { animation: vanish 3.6s ease-in-out calc(var(--i) * -1.2s) infinite; }
+  .hexatom-ring { animation: orbit 4.5s linear infinite; }
+  .hexatom-ring polygon { animation: travel 2.4s linear infinite; }
+  .hexatom-core { animation: vanish 2.7s ease-in-out infinite; }
+  /* Evanescent: every part thins to almost nothing, blurring as it goes. */
+  @keyframes vanish {
+    0%, 100% { opacity: 0.04; filter: blur(1.5px); }
+    50%      { opacity: 0.95; filter: blur(0); }
+  }
+  @keyframes orbit {
+    from { transform: rotateX(68deg) rotateZ(0deg); }
+    to   { transform: rotateX(68deg) rotateZ(360deg); }
+  }
+  @keyframes travel {
+    to { stroke-dashoffset: -276; }
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .polaroid figure { transition: none; }
+  .portrait img { transition: none; }
 }
 
 .dot {
