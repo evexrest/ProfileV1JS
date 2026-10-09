@@ -179,6 +179,25 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
   .ltr, .ltr.up { transition: none; transform: none; }
 }
 
+/* ---- the photo ------------------------------------------------------------ */
+.polaroid figure {
+  rotate: var(--tilt, 3deg);
+  /* The same springy overshoot the name's letters rise with. */
+  transition: rotate 520ms cubic-bezier(0.18, 1.6, 0.42, 1), scale 520ms cubic-bezier(0.18, 1.6, 0.42, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .polaroid:hover figure { rotate: 0deg; scale: 1.05; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .polaroid { animation: drift 6s ease-in-out infinite; }
+  @keyframes drift {
+    50% { transform: translateY(-7px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .polaroid figure { transition: none; }
+}
+
 .dot {
   box-shadow: 0 0 0 3px rgba(92, 200, 201, 0.18), 0 0 12px rgba(92, 200, 201, 0.5);
 }
