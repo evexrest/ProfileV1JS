@@ -5,7 +5,7 @@ import { Footer } from "@/components/site/Footer"
 import { Intro, Lede } from "@/components/site/Intro"
 import { MOUNTAINS, MountainPicker } from "@/components/site/MountainPicker"
 import { Name } from "@/components/site/Name"
-import { Polaroid } from "@/components/site/Polaroid"
+import { Portrait } from "@/components/site/Portrait"
 import { Section } from "@/components/site/Section"
 import { useCursorLight } from "@/hooks/use-cursor-light"
 import { readingOrder, useFit } from "@/hooks/use-fit"
@@ -21,7 +21,7 @@ function Block({ id, mountain, setMountain }) {
   if (id === "mountain") return <MountainPicker value={mountain} onChange={setMountain} />
   if (id === "intro") return <Intro eyebrow={content.eyebrow} status={content.status} />
   if (id === "lede") return <Lede text={content.intro} />
-  if (id === "photo") return <Polaroid {...content.photo} />
+  if (id === "photo") return <Portrait {...content.photo} />
   if (id === "footer") return <Footer footer={content.footer} links={content.links} />
   const s = content.sections[+id.split("-")[1]]
   return <Section title={s.title} rows={s.rows} />
