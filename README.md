@@ -7,9 +7,10 @@ version, which is kept here unchanged in `original/index.html` for comparison.
 ## Where things are
 
 - `src/content.json` — every word on the page, and where each block sits. Edit this to change the copy.
-- `src/components/site/` — the page's blocks: `Name` (the mountain), `Intro`, `Section`, `Footer`.
+- `src/components/site/` — the page's blocks: `Name` (the mountain), `Intro`, `Section`, `Footer`, `Polaroid` (the photo).
 - `src/components/ui/` — the shadcn components they are built from: `Badge`, `Separator`, `Button`.
 - `src/hooks/` — the scale-to-fit layout and the cursor light.
+- `public/me.jpg` — the photo. Its caption, tilt and place are under "photo" in `src/content.json`.
 - `src/index.css` — colours, fonts, and the animations.
 
 ## Running it
