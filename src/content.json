@@ -24,6 +24,11 @@
       "icon": "instagram",
       "label": "Instagram",
       "href": "https://www.instagram.com/everest.mtny/"
+    },
+    {
+      "icon": "github",
+      "label": "GitHub",
+      "href": "https://github.com/evexrest"
     }
   ],
   "footer": {
@@ -121,7 +126,7 @@
     "footer": {
       "x": 0,
       "y": 53,
-      "w": 50,
+      "w": 60,
       "s": 0.9
     },
     "mountain": {
