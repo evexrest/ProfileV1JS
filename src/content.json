@@ -6,7 +6,8 @@
   "photo": {
     "src": "/me.jpg",
     "alt": "Everest, seen from behind, looking at the Toronto skyline at night",
-    "tilt": 3
+    "tilt": 3,
+    "atom": false
   },
   "links": [
     {
