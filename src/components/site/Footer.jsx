@@ -21,9 +21,6 @@ function external(href) {
 export function Footer({ footer, links }) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-[0.4rem] font-mono text-[0.6875rem] font-medium tracking-[0.08em] text-faint">
-      <Button asChild variant="link" className={LINK}>
-        <a href={"mailto:" + footer.email}>{footer.email}</a>
-      </Button>
       <span>{footer.location}</span>
       {links.map((l) => (
         <Button key={l.label} asChild variant="link" className={LINK}>
