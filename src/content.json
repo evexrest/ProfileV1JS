@@ -45,6 +45,13 @@
       "title": "Building",
       "rows": [
         {
+          "label": "Web app",
+          "bold": "Cue",
+          "text": "",
+          "tag": "GitHub",
+          "href": "https://github.com/adnjkm/cue"
+        },
+        {
           "label": "Extension",
           "bold": "Claude Themes",
           "text": "",
@@ -63,13 +70,6 @@
           "text": "",
           "tag": "GitHub",
           "href": "https://github.com/evexrest/rate-history"
-        },
-        {
-          "label": "Tool",
-          "bold": "Currency Tracker",
-          "text": "",
-          "tag": "GitHub",
-          "href": "https://github.com/evexrest/currency-tracker"
         },
         {
           "label": "Tool",
