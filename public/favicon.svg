@@ -5,5 +5,5 @@
       <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
     </filter>
   </defs>
-  <polygon points="32,6 54.5,19 54.5,45 32,58 9.5,45 9.5,19" fill="none" stroke="#5ff4f6" stroke-width="6" stroke-linejoin="round" filter="url(#glow)" />
+  <polygon points="32,6 54.5,19 54.5,45 32,58 9.5,45 9.5,19" fill="#1f9fb0" fill-opacity="0.7" stroke="#5ff4f6" stroke-width="6" stroke-linejoin="round" filter="url(#glow)" />
 </svg>
