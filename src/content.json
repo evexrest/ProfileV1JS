@@ -60,6 +60,12 @@
         },
         {
           "label": "Web app",
+          "bold": "Farehop",
+          "text": "",
+          "tag": "Private"
+        },
+        {
+          "label": "Web app",
           "bold": "Doodle Gallery",
           "text": "",
           "tag": "Private"
