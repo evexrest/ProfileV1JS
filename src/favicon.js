@@ -1,9 +1,9 @@
 // Spins the two orbs in the tab icon. Browsers draw an SVG favicon as a still
-// image, so the icon is redrawn a few times a second instead. public/favicon.svg
+// image, so the icon is redrawn every other screen frame instead. public/favicon.svg
 // is the same drawing at rest, used before this runs and when motion is reduced.
 const ORBIT = 27
 const PERIOD = 4000
-const FPS = 15
+const FPS = 30
 
 function draw(turn) {
   const orbs = [0, 0.5].map((offset) => {
@@ -19,11 +19,15 @@ export function spinFavicon() {
   const link = document.querySelector('link[rel="icon"]')
   if (!link || matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const start = performance.now()
-  // Background tabs throttle timers to once a second, which would make the orbs
-  // jump, so the icon rests while the tab is hidden.
-  setInterval(() => {
-    if (document.hidden) return
-    const turn = ((performance.now() - start) % PERIOD) / PERIOD
+  let last = 0
+  // Animation frames stop while the tab is hidden, so the icon rests there
+  // instead of jumping once a second the way background timers would.
+  function tick(now) {
+    requestAnimationFrame(tick)
+    if (now - last < 1000 / FPS - 1) return
+    last = now
+    const turn = ((now - start) % PERIOD) / PERIOD
     link.href = 'data:image/svg+xml,' + encodeURIComponent(draw(turn))
-  }, 1000 / FPS)
+  }
+  requestAnimationFrame(tick)
 }
