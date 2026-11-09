@@ -334,4 +334,6 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 .gear-art .iso-dots circle { fill: var(--anatomy-dot); opacity: 0.85; }
 .gear-art .gear-hole { fill: #020606; }
 .gear-art .gear-wall { fill: var(--anatomy-shade-1); }
+/* A white hairline over the teal on the top edges, the hub and the holes. */
+.gear-art .gear-shine { fill: none; stroke: #fff; stroke-opacity: 0.7; stroke-width: 1.1px; stroke-linejoin: round; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }

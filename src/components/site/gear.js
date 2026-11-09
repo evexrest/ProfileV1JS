@@ -58,7 +58,8 @@ function hole(id, cx, cy, r, z, depth) {
     `<path class="gear-hole" d="${near}"/>` +
     `<path class="gear-wall" clip-path="url(#${id})" d="${near}"/>` +
     `<path class="gear-hole" clip-path="url(#${id})" d="${sunk}"/>` +
-    L(near, { tone: "mid" })
+    L(near, { tone: "mid" }) +
+    `<path class="gear-shine" d="${near}"/>`
   )
 }
 
@@ -77,6 +78,7 @@ function gearBody(ring) {
     `<path class="iso-line" data-tone="lit" d="${b.outline}"/>` +
     `<path class="iso-top" d="${b.top}"/>` +
     `<path class="iso-line" data-tone="lit" d="${b.top}"/>` +
+    `<path class="gear-shine" d="${b.top}"/>` +
     `</g>`
   )
 }
@@ -93,6 +95,7 @@ export function drawGear(turn) {
     out.push(hole("gear-h" + i, x, y, HOLE_R, top, THICK))
   }
   out.push(S(k.cylinder(0, 0, HUB_R, top, HUB_H, P, 40, 0.8), { tone: "lit", crease: "mid", lit: true }))
+  out.push(`<path class="gear-shine" d="${flatOn(0, 0, HUB_R, top + HUB_H, 40)}"/>`)
   const hubTop = top + HUB_H
   out.push(L(flatOn(0, 0, HUB_R - 2.2, hubTop, 40), { tone: "lo" }))
   const screws = Array.from({ length: HOLES }, (_, i) => polar(8.4, turn + i * PERIOD))
