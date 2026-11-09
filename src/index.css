@@ -307,8 +307,10 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
 /* While the page changes, the mechanism is on the sheet, not in the button. */
 html.gear-moving .gear-button { visibility: hidden; }
-/* The black gear on the second page fades in as the white sheet lifts. */
-.second-page ~ .gear-button { animation: gear-arrive 350ms ease-out both; }
+/* The black gear on the second page fades in once the white sheet has lifted:
+   the animation starts only when gear-moving comes off, so none of it is spent
+   hidden under the sheet. */
+html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both; }
 @keyframes gear-arrive { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .second-page ~ .gear-button { animation: none; } }
 
