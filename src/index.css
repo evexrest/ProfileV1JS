@@ -279,8 +279,8 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 
 /* ---------- the settings gear ---------- */
 
-/* An isometric gear drawn with the anatomy kit's classes, coloured from the
-   site's teal. Fixed to the top right of the window. */
+/* The gear button, fixed to the top right of the window. Its picture is the
+   same mechanism the page change zooms out (gear-mechanism.js). */
 .gear-button {
   position: fixed;
   top: 18px;
@@ -293,71 +293,20 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
   background: none;
   cursor: pointer;
   transition: translate 300ms cubic-bezier(0.18, 1.6, 0.42, 1);
-  --anatomy-paper: #0b1516;
-  --anatomy-face: #0f1d1e;
-  --anatomy-top: #16302f;
-  --anatomy-lit-top: #183836;
-  --anatomy-lit-shade: #0e2425;
-  --anatomy-shade-0: #071010;
-  --anatomy-shade-1: #0a1718;
-  --anatomy-shade-2: #0d1f20;
-  --anatomy-shade-3: #112828;
-  --anatomy-hi: #9ee6e7;
-  --anatomy-mid: #3a8f91;
-  --anatomy-lo: #24595a;
-  --anatomy-faint: #183d3e;
-  --anatomy-lit: #5cc8c9;
-  --anatomy-dot: #9ee6e7;
-  --anatomy-halo: #000;
-  --anatomy-weight: 0.9px;
 }
 .gear-button:active { translate: 0 1px; }
-/* On the dark home page the gear is white metal with teal edges. The second
-   page is white, so there it keeps the dark teal look. */
-.gear-button[data-white] {
-  --anatomy-paper: #dfe6e6;
-  --anatomy-face: #e9eeee;
-  --anatomy-lit-top: #ffffff;
-  --anatomy-lit-shade: #cfd9da;
-  --anatomy-shade-0: #9fb0b1;
-  --anatomy-shade-1: #b8c6c7;
-  --anatomy-shade-2: #cfd9da;
-  --anatomy-shade-3: #e3eaea;
-  --anatomy-hi: #3a8f91;
-  --anatomy-mid: #5cc8c9;
-  --anatomy-lo: #8fb4b5;
-  --anatomy-faint: #b9cfd0;
-  --anatomy-lit: #5cc8c9;
-  --anatomy-dot: #3a8f91;
-}
 .gear-button:focus-visible { outline-offset: 2px; border-radius: 50%; }
-/* The drawing is replaced on every frame of the spin. If the pointer could land
+/* The drawing is redrawn on every frame of the spin. If the pointer could land
    on it, the piece pressed would be gone by release and no click would fire,
    so clicks go to the button itself. */
 .gear-art { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.gear-art path, .gear-art circle { vector-effect: non-scaling-stroke; }
-.gear-art .iso-fill { fill: var(--anatomy-paper); }
-.gear-art .iso-solid[data-lit] > .iso-fill { fill: var(--anatomy-face); }
-.gear-art .iso-shade, .gear-art .iso-top { stroke: none; }
-.gear-art .iso-solid[data-lit] > .iso-shade { fill: var(--anatomy-lit-shade); }
-.gear-art .iso-solid[data-lit] > .iso-shade[data-shade="0"] { fill: var(--anatomy-shade-0); }
-.gear-art .iso-solid[data-lit] > .iso-shade[data-shade="1"] { fill: var(--anatomy-shade-1); }
-.gear-art .iso-solid[data-lit] > .iso-shade[data-shade="2"] { fill: var(--anatomy-shade-2); }
-.gear-art .iso-solid[data-lit] > .iso-shade[data-shade="3"] { fill: var(--anatomy-shade-3); }
-.gear-art .iso-solid[data-lit] > .iso-top { fill: var(--anatomy-lit-top); }
-.gear-art .iso-solid[data-lit] > .iso-edge { stroke: var(--anatomy-lit); }
-.gear-art .iso-halo { fill: var(--anatomy-halo); stroke: none; filter: blur(4px); opacity: 0.8; transform: translateY(2px); }
-.gear-art .iso-line { fill: none; stroke: var(--anatomy-lo); stroke-width: var(--anatomy-weight); stroke-linecap: round; stroke-linejoin: round; }
-.gear-art .iso-line[data-tone="hi"] { stroke: var(--anatomy-hi); }
-.gear-art .iso-line[data-tone="mid"] { stroke: var(--anatomy-mid); }
-.gear-art .iso-line[data-tone="faint"] { stroke: var(--anatomy-faint); }
-.gear-art .iso-line[data-tone="lit"] { stroke: var(--anatomy-lit); }
-.gear-art .iso-dots circle { fill: var(--anatomy-dot); opacity: 0.85; }
-.gear-art .gear-hole { fill: #020606; }
-.gear-art .gear-wall { fill: var(--anatomy-shade-1); }
-/* A white hairline over the teal on the top edges, the hub and the holes. */
-.gear-art .gear-shine { fill: none; stroke: #fff; stroke-opacity: 0.7; stroke-width: 1.1px; stroke-linejoin: round; }
+/* Lines keep their pixel width at any scale, so at button size they are drawn
+   lighter, or the teal would crowd out the white. The page change thickens
+   them as the gear grows (REST_WEIGHT in gear-mechanism.js). */
+.gear-art { --weight: 0.4; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
+/* While the page changes, the mechanism is on the sheet, not in the button. */
+html.gear-moving .gear-button { visibility: hidden; }
 
 /* ---------- the second page ---------- */
 
@@ -368,23 +317,18 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
   background: #fff;
 }
 
-/* The mechanism that zooms over the window between the two pages
-   (gear-wipe.js). Above everything, the gear button included. */
+/* The mechanism, in the button and on the sheet that covers the window
+   during a page change, above everything. */
 .gear-wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; pointer-events: none; }
-.gear-wipe .gw-fill { fill: #fff; opacity: 0; }
-.gear-wipe .gw-body { fill: url(#gw-metal); }
-.gear-wipe .gw-rim { fill: none; stroke: #5cc8c9; stroke-width: 1.2px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-fill { fill: #fff; opacity: 0; }
+.gw .gw-body { fill: url(#gw-metal); }
+.gw .gw-rim { fill: none; stroke: #5cc8c9; stroke-width: calc(var(--weight, 1) * 1.2px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 /* Side walls are many quads; a stroke in their own colour closes the hairline
-   seams between neighbours. */
-.gear-wipe .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-/* The same four wall tones as the white gear button. */
-.gear-wipe .gw-side[data-shade="0"] { fill: #9fb0b1; stroke: #9fb0b1; }
-.gear-wipe .gw-side[data-shade="1"] { fill: #b8c6c7; stroke: #b8c6c7; }
-.gear-wipe .gw-side[data-shade="2"] { fill: #cfd9da; stroke: #cfd9da; }
-.gear-wipe .gw-side[data-shade="3"] { fill: #e3eaea; stroke: #e3eaea; }
-.gear-wipe .gw-foot { fill: none; stroke: #3a8f91; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
-.gear-wipe .gw-line { fill: none; stroke: #c3d2d3; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
-/* The dark gear on the white second page fades in as the white gear lifts. */
-.second-page + .gear-button { animation: gear-arrive 400ms ease-out both; }
-@keyframes gear-arrive { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .second-page + .gear-button { animation: none; } }
+   seams between neighbours. Four tones by facing, as the kit shades. */
+.gw .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.gw .gw-side[data-shade="0"] { fill: #9fb0b1; stroke: #9fb0b1; }
+.gw .gw-side[data-shade="1"] { fill: #b8c6c7; stroke: #b8c6c7; }
+.gw .gw-side[data-shade="2"] { fill: #cfd9da; stroke: #cfd9da; }
+.gw .gw-side[data-shade="3"] { fill: #e3eaea; stroke: #e3eaea; }
+.gw .gw-foot { fill: none; stroke: #3a8f91; stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-line { fill: none; stroke: #c3d2d3; stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }

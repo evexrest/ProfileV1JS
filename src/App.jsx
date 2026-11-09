@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import content from "@/content.json"
 import { Footer } from "@/components/site/Footer"
 import { GearButton } from "@/components/site/GearButton"
-import { wipeIn, wipeOut } from "@/components/site/gear-wipe"
+import { wipeIn, wipeOut } from "@/components/site/gear-mechanism"
 import { Intro, Lede } from "@/components/site/Intro"
 import { MOUNTAINS, MountainPicker } from "@/components/site/MountainPicker"
 import { Name } from "@/components/site/Name"
@@ -61,7 +61,7 @@ function Home({ onGear }) {
     <>
       <div ref={field} className="field" aria-hidden="true" />
       <div ref={spot} className="spot" aria-hidden="true" />
-      <GearButton onClick={onGear} white />
+      <GearButton onClick={onGear} />
       <main ref={page} className="page">
         <div className="canvas-wrap">
           <div className="canvas">

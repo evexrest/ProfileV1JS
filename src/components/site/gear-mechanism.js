@@ -1,26 +1,29 @@
-// The page change: a white mechanism zooms out of the gear button. Three parts
-// turn against each other: a toothed outer ring, a spoked wheel inside it and a
-// solid cog at the hub, with open space between them where the page shows
-// through. Each part is a slab with real thickness, stacked at different
-// heights (ring lowest, cog highest), seen from exactly the button's angle:
-// side walls show to the lower left.
-// The zoom ends inside the cog's top face, whose white then covers the whole
-// window, and the white second page is underneath. Going home plays it
-// backwards, shrinking back into the button.
+// The gear: one small machine that is both the button in the corner and the
+// page change. Three parts turn against each other: a toothed outer ring, a
+// spoked wheel inside it and a solid cog at the hub, with open space between
+// them where the page shows through. Each part is a slab with real thickness,
+// stacked at different heights (ring lowest, cog highest), seen from above at
+// an angle so side walls show to the lower left.
 //
-// Parts are outlines around (0, 0) on a radius of 50. Each frame turns them,
+// At rest it sits in the button. Clicking it hides the button and draws the
+// same mechanism, at the same size and turn, on a sheet over the window, then
+// zooms it until the window lies inside the cog's top face, whose white then
+// covers everything: the white second page is underneath. Going home plays it
+// backwards, and the mechanism shrinks back into the button it came from.
+//
+// Parts are outlines around (0, 0) on a radius of 50. Each pose turns them,
 // draws the side walls that face the viewer, shaded by which way they face,
 // and lays the top face over them.
-import { VIEW } from "@/components/site/gear"
 
 const MS = 1100
-const START_R = 30 // px: about the drawn gear in the button
+const REST_R = 30 // px: the mechanism's radius in the button
 const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at the end: inside its top face, seen at an angle
-// The button's camera, as one matrix from the gear's plane to the screen: the
-// kit's isometric view (azimuth, elevation) turned by the button's picture
-// turn. A unit of height moves a point up the screen by cos(elevation), which
-// in plane units is cot(elevation) toward the viewer: DOWN is that direction.
-// LIGHT is the kit's light, so walls take the button's tones.
+// The camera: the kit's isometric view from azimuth 45, elevation 58, with the
+// picture turned 55 degrees, as one matrix from the gear's plane to the
+// screen. A unit of height moves a point up the screen by cos(elevation),
+// which in plane units is cot(elevation) toward the viewer: DOWN is that
+// direction. LIGHT is the kit's light.
+const VIEW = { azimuth: 45, elevation: 58, turn: 55 }
 const rad = (d) => (d * Math.PI) / 180
 const [sA, cA, sE, cE] = [Math.sin(rad(VIEW.azimuth)), Math.cos(rad(VIEW.azimuth)), Math.sin(rad(VIEW.elevation)), Math.cos(rad(VIEW.elevation))]
 const [sT, cT] = [Math.sin(rad(VIEW.turn)), Math.cos(rad(VIEW.turn))]
@@ -132,31 +135,6 @@ const PARTS = [
 ]
 const COG_TOP = PARTS.find((p) => p.name === "cog").top
 
-const SVG = `
-<svg class="gear-wipe" aria-hidden="true">
-  <defs>
-    <radialGradient id="gw-metal" cx="0" cy="0" r="50" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.7" stop-color="#f4f7f7"/>
-      <stop offset="1" stop-color="#e2e9e9"/>
-    </radialGradient>
-  </defs>
-  <rect class="gw-fill" width="100%" height="100%"/>
-  <g class="gw-at">${PARTS.map((p) => `
-    <g data-part="${p.name}">
-      ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
-      <path class="gw-foot"/>
-      <g class="gw-top" transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
-        <g class="gw-turn">
-          <path class="gw-body" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
-          <path class="gw-line" d="${p.lines}"/>
-          <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
-        </g>
-      </g>
-    </g>`).join("")}
-  </g>
-</svg>`
-
 // The side walls of one part turned by `deg`: every edge whose outward side
 // faces down the screen gets a wall from its top edge to its bottom edge,
 // sorted into one of four tones by how it faces the light.
@@ -187,69 +165,127 @@ function walls(part, deg) {
   return { sides: buckets.map((b) => b.join("")), foot: foot.join("") }
 }
 
+
+const markup = (sheet) => `
+  <defs>
+    <radialGradient id="gw-metal" cx="0" cy="0" r="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#f4f7f7"/>
+      <stop offset="1" stop-color="#e2e9e9"/>
+    </radialGradient>
+  </defs>
+  ${sheet ? `<rect class="gw-fill" width="100%" height="100%"/>` : ""}
+  <g class="gw-at">${PARTS.map((p) => `
+    <g data-part="${p.name}">
+      ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
+      <path class="gw-foot"/>
+      <g transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
+        <g class="gw-turn">
+          <path class="gw-body" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
+          <path class="gw-line" d="${p.lines}"/>
+          <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
+        </g>
+      </g>
+    </g>`).join("")}
+  </g>`
+
+// Draws the mechanism into an <svg>. pose() places it: centre in the svg's own
+// pixels, scale in pixels per unit, and turn, where 1 is how far the parts
+// turn over one page change (the ring 110 degrees, the wheel back 80, the cog
+// 320). The cog's top face stays on the centre, so lower parts slide out from
+// under it to the lower left as the scale grows.
+export function mechanism(svg, { sheet = false } = {}) {
+  svg.innerHTML = markup(sheet)
+  const at = svg.querySelector(".gw-at")
+  const parts = PARTS.map((p) => {
+    const g = svg.querySelector(`[data-part="${p.name}"]`)
+    return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), turn: g.querySelector(".gw-turn") }
+  })
+  return function pose(cx, cy, scale, turn) {
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${CAMERA.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
+    for (const { p: part, sides, foot, turn: g } of parts) {
+      const deg = part.turn * turn
+      const w = walls(part, deg)
+      sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
+      foot.setAttribute("d", w.foot)
+      g.setAttribute("transform", `rotate(${deg})`)
+    }
+  }
+}
+
+export const REST_SCALE = REST_R / 50
+// Line weight in the button, as a share of full weight: matches .gear-art in
+// index.css.
+const REST_WEIGHT = 0.4
+
+// How far the gear has turned, kept here so the button on either page and the
+// page change all start where the last one stopped.
+let turned = 0
+const watchers = new Set()
+export const turnedNow = () => turned
+export function setTurned(t) {
+  turned = t
+  watchers.forEach((fn) => fn(t))
+}
+export function watchTurned(fn) {
+  watchers.add(fn)
+  return () => watchers.delete(fn)
+}
+
 let busy = false
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 const smooth = (a, b, t) => { const x = Math.min(1, Math.max(0, (t - a) / (b - a))); return x * x * (3 - 2 * x) }
 
-function mount(button) {
+// Runs the change from progress `from` to `to` (0 = in the button, 1 = past
+// the window's edges). midway() runs once the sheet covers the button; end()
+// once the motion is over.
+function run(button, from, to, midway, end) {
+  busy = true
   const r = button.getBoundingClientRect()
   const cx = r.left + r.width / 2
   const cy = r.top + r.height / 2
   const far = Math.max(...[[0, 0], [innerWidth, 0], [0, innerHeight], [innerWidth, innerHeight]].map(([x, y]) => Math.hypot(x - cx, y - cy)))
-  const host = document.createElement("div")
-  host.innerHTML = SVG
-  const svg = host.firstElementChild
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.setAttribute("class", "gw gear-wipe")
+  svg.setAttribute("aria-hidden", "true")
   document.body.appendChild(svg)
-  const at = svg.querySelector(".gw-at")
+  const pose = mechanism(svg, { sheet: true })
   const fill = svg.querySelector(".gw-fill")
-  const parts = PARTS.map((p) => {
-    const g = svg.querySelector(`[data-part="${p.name}"]`)
-    return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), turn: g.querySelector(".gw-turn") }
-  })
-  const s0 = START_R / 50
   const s1 = far / END_AT
-  // One frame at progress p (0 = in the button, 1 = past the window's edges).
-  // The cog's top face stays centred on the button, so the lower parts slide
-  // out from under it to the lower left as the mechanism grows.
+  // Going out, the turn runs from where the button stopped to one more; coming
+  // home, from there back by one.
+  const t0 = turnedNow() - from
   function frame(p) {
     const e = easeInOut(p)
-    const scale = s0 * (s1 / s0) ** e // zoom at an even pace on a log scale
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${CAMERA.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
-    for (const { p: part, sides, foot, turn } of parts) {
-      const deg = part.turn * e
-      const w = walls(part, deg)
-      sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
-      foot.setAttribute("d", w.foot)
-      turn.setAttribute("transform", `rotate(${deg})`)
-    }
-    at.style.opacity = smooth(0, 0.08, p)
+    pose(cx, cy, REST_SCALE * (s1 / REST_SCALE) ** e, t0 + e) // zoom at an even pace on a log scale
     // The lines fade as the cog's plain white takes over; the white sheet only
     // guards the last frame.
     svg.style.setProperty("--ink", 1 - smooth(0.82, 0.98, p))
+    svg.style.setProperty("--weight", REST_WEIGHT + (1 - REST_WEIGHT) * smooth(0, 0.25, p))
     fill.style.opacity = smooth(0.97, 1, p)
   }
-  return { svg, frame }
-}
-
-function run(button, from, to, midway, end) {
-  busy = true
-  const { svg, frame } = mount(button)
   frame(from)
+  document.documentElement.classList.add("gear-moving")
   midway?.()
   const start = performance.now()
   function tick(now) {
     const t = Math.min(1, (now - start) / MS)
     frame(from + (to - from) * t)
     if (t < 1) return requestAnimationFrame(tick)
+    setTurned(t0 + to)
     end?.()
-    requestAnimationFrame(() => requestAnimationFrame(() => { svg.remove(); busy = false }))
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.documentElement.classList.remove("gear-moving")
+      svg.remove()
+      busy = false
+    }))
   }
   requestAnimationFrame(tick)
 }
 
-// Zooms the mechanism out over the window, then calls covered() to swap the
-// page underneath.
+// Zooms the mechanism out of the button over the window, then calls covered()
+// to swap the page underneath.
 export function wipeOut(button, covered) {
   if (busy) return
   if (reduced()) return covered()
