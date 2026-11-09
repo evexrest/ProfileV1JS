@@ -340,12 +340,9 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 
 /* ---------- the second page ---------- */
 
-/* ryo.lu's background: white, or #111 in dark mode. */
+/* ryo.lu's light background, white, in light and dark mode alike. */
 .second-page {
   position: fixed;
   inset: 0;
   background: #fff;
-}
-@media (prefers-color-scheme: dark) {
-  .second-page { background: #111; }
 }

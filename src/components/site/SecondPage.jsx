@@ -1,7 +1,7 @@
 import { GearButton } from "@/components/site/GearButton"
 
-// The page the gear opens. Empty for now: only its background, which takes
-// ryo.lu's colours (white, or #111 when the visitor's system is in dark mode).
+// The page the gear opens. Empty for now: only its background, ryo.lu's light
+// one (white), whatever the visitor's system setting.
 // The gear takes you back home.
 export function SecondPage({ onGear }) {
   return (
