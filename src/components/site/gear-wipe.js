@@ -1,9 +1,10 @@
 // The page change: a white mechanism zooms out of the gear button. Three parts
 // turn against each other: a toothed outer ring, a spoked wheel inside it and a
 // solid cog at the hub, with open space between them where the page shows
-// through. Each part is a slab with real thickness, and they sit at different
-// heights (ring lowest, cog highest), seen from the same side as the button:
-// side walls show to the lower left. The zoom ends inside the cog's top face,
+// through, and a smaller gear off to the side meshes with the ring's teeth.
+// Each part is a slab with real thickness, stacked at different heights (ring
+// lowest, cog highest), and the whole plane is tilted a little, seen from the
+// same side as the button: side walls show to the lower left. The zoom ends inside the cog's top face,
 // whose white then covers the whole window, and the white second page is
 // underneath. Going home plays it backwards, shrinking back into the button.
 //
@@ -12,7 +13,9 @@
 // and lays the top face over them.
 const MS = 1100
 const START_R = 30 // px: about the drawn gear in the button
-const END_AT = 6.5 // units from the cog's centre the farthest corner reaches at the end: inside its top face
+const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at the end: inside its tilted top face
+// The tilt: the plane is turned and squashed so circles read as ellipses.
+const TILT = "rotate(-14) scale(1 0.8)"
 const DOWN = [-0.55, 0.83] // screen direction one unit of height drops: down and to the left
 const LIGHT = [-0.6, -0.8] // light from the upper left
 const SHADES = 4
@@ -54,12 +57,36 @@ function windows() {
 const circleD = (r, cx = 0, cy = 0) => `M${cx + r} ${cy}a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`
 const loopD = (loop) => "M" + loop.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join("L") + "Z"
 
-// base and top: heights in units. turn: degrees over the whole change.
+// The side gear meshes with the outer ring: 15 teeth on the same tooth size,
+// its centre at the sum of the two pitch radii, set where a ring gap points.
+const MESH_AT = (145 * Math.PI) / 180
+const SIDE = polar(47 + 19.6, MESH_AT)
+const RATIO = 36 / 15
+const shift = ([cx, cy], loop) => loop.map(([x, y]) => [x + cx, y + cy])
+const spin = (deg, loop) => { const a = (deg * Math.PI) / 180; return loop.map(([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]) }
+
+// base and top: heights in units. turn: degrees over the whole change, about
+// the part's centre. Parts are painted in this order, lowest first.
 const PARTS = [
   {
     name: "ring", base: 0, top: 3, turn: 110,
     loops: [outer(teeth(36, 44, 50)), hole(ring(36.5, 64)), ...Array.from({ length: 12 }, (_, i) => hole(ring(1.6, 10, ...polar(40.2, (i / 12) * Math.PI * 2))))],
-    lines: circleD(41.8) + circleD(38.4),
+    lines: circleD(42.6),
+  },
+  {
+    // A lip round the ring's bore, standing a step above it.
+    name: "lip", base: 3, top: 4.2, turn: 110,
+    loops: [outer(ring(38.6, 64)), hole(ring(36.5, 64))],
+    lines: Array.from({ length: 24 }, (_, i) => circleD(0.35, ...polar(37.55, (i / 24) * Math.PI * 2))).join(""),
+  },
+  {
+    name: "side", base: 0.4, top: 3.4, turn: -110 * RATIO, center: SIDE,
+    loops: [
+      outer(shift(SIDE, spin(13, teeth(15, 16.6, 22.6)))),
+      hole(shift(SIDE, ring(3.6, 24))),
+      ...Array.from({ length: 5 }, (_, i) => hole(shift(SIDE, ring(2.8, 16, ...polar(10.6, (i / 5) * Math.PI * 2))))),
+    ],
+    lines: circleD(15, ...SIDE) + circleD(6, ...SIDE),
   },
   {
     name: "wheel", base: 1.5, top: 5, turn: -80,
@@ -67,12 +94,18 @@ const PARTS = [
     lines: circleD(31.8) + Array.from({ length: 6 }, (_, i) => circleD(0.9, ...polar(31.8, (i / 6) * Math.PI * 2 + Math.PI / 6))).join(""),
   },
   {
+    // A collar on the wheel's hub, round the cog.
+    name: "collar", base: 5, top: 6.2, turn: -80,
+    loops: [outer(ring(15, 40)), hole(ring(11.5, 32))],
+    lines: Array.from({ length: 6 }, (_, i) => circleD(0.6, ...polar(13.25, (i / 6) * Math.PI * 2))).join(""),
+  },
+  {
     name: "cog", base: 3, top: 7, turn: 320,
     loops: [outer(teeth(12, 7.4, 10))],
     lines: circleD(3.4) + circleD(5.4) + circleD(0.8),
   },
 ]
-const COG_TOP = PARTS[2].top
+const COG_TOP = PARTS.find((p) => p.name === "cog").top
 
 const SVG = `
 <svg class="gear-wipe" aria-hidden="true">
@@ -89,7 +122,7 @@ const SVG = `
       ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
       <path class="gw-foot"/>
       <g class="gw-top" transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
-        <g class="gw-turn">
+        <g class="gw-turn" data-center="${(p.center ?? [0, 0]).join(" ")}">
           <path class="gw-body" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
           <path class="gw-line" d="${p.lines}"/>
           <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
@@ -106,12 +139,13 @@ function walls(part, deg) {
   const a = (deg * Math.PI) / 180
   const c = Math.cos(a)
   const s = Math.sin(a)
+  const [ox, oy] = part.center ?? [0, 0]
   const [tx, ty] = [-DOWN[0] * part.top, -DOWN[1] * part.top]
   const [bx, by] = [-DOWN[0] * part.base, -DOWN[1] * part.base]
   const buckets = Array.from({ length: SHADES }, () => [])
   const foot = []
   for (const loop of part.loops) {
-    const pts = loop.map(([x, y]) => [x * c - y * s, x * s + y * c])
+    const pts = loop.map(([x, y]) => [ox + (x - ox) * c - (y - oy) * s, oy + (x - ox) * s + (y - oy) * c])
     for (let i = 0; i < pts.length; i++) {
       const [x0, y0] = pts[i]
       const [x1, y1] = pts[(i + 1) % pts.length]
@@ -157,13 +191,13 @@ function mount(button) {
   function frame(p) {
     const e = easeInOut(p)
     const scale = s0 * (s1 / s0) ** e // zoom at an even pace on a log scale
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) ${TILT} translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
     for (const { p: part, sides, foot, turn } of parts) {
       const deg = part.turn * e
       const w = walls(part, deg)
       sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
       foot.setAttribute("d", w.foot)
-      turn.setAttribute("transform", `rotate(${deg})`)
+      turn.setAttribute("transform", `rotate(${deg} ${turn.dataset.center})`)
     }
     at.style.opacity = smooth(0, 0.08, p)
     // The lines fade as the cog's plain white takes over; the white sheet only
