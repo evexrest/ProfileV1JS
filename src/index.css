@@ -367,3 +367,17 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
   inset: 0;
   background: #fff;
 }
+
+/* The white gear that grows over the window between the two pages
+   (gear-wipe.js). Above everything, the gear button included. */
+.gear-wipe {
+  position: fixed;
+  z-index: 40;
+  background: #fff;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* The dark gear on the white second page fades in as the white gear lifts. */
+.second-page + .gear-button { animation: gear-arrive 400ms ease-out both; }
+@keyframes gear-arrive { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .second-page + .gear-button { animation: none; } }

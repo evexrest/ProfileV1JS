@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import content from "@/content.json"
 import { Footer } from "@/components/site/Footer"
 import { GearButton } from "@/components/site/GearButton"
+import { wipeIn, wipeOut } from "@/components/site/gear-wipe"
 import { Intro, Lede } from "@/components/site/Intro"
 import { MOUNTAINS, MountainPicker } from "@/components/site/MountainPicker"
 import { Name } from "@/components/site/Name"
@@ -100,6 +101,10 @@ export default function App() {
     setPath(to)
     window.scrollTo(0, 0)
   }
-  if (path === SECOND) return <SecondPage onGear={() => go("/")} />
-  return <Home onGear={() => go(SECOND)} />
+  // The gear grows out over the home page to open the second page, and shrinks
+  // back into itself to return home.
+  const open = (e) => wipeOut(e.currentTarget, () => go(SECOND))
+  const close = (e) => wipeIn(e.currentTarget, () => go("/"))
+  if (path === SECOND) return <SecondPage onGear={close} />
+  return <Home onGear={open} />
 }
