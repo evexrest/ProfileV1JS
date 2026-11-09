@@ -312,6 +312,24 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
   --anatomy-weight: 0.9px;
 }
 .gear-button:active { translate: 0 1px; }
+/* On the dark home page the gear is white metal with teal edges. The second
+   page is white, so there it keeps the dark teal look. */
+.gear-button[data-white] {
+  --anatomy-paper: #dfe6e6;
+  --anatomy-face: #e9eeee;
+  --anatomy-lit-top: #ffffff;
+  --anatomy-lit-shade: #cfd9da;
+  --anatomy-shade-0: #9fb0b1;
+  --anatomy-shade-1: #b8c6c7;
+  --anatomy-shade-2: #cfd9da;
+  --anatomy-shade-3: #e3eaea;
+  --anatomy-hi: #3a8f91;
+  --anatomy-mid: #5cc8c9;
+  --anatomy-lo: #8fb4b5;
+  --anatomy-faint: #b9cfd0;
+  --anatomy-lit: #5cc8c9;
+  --anatomy-dot: #3a8f91;
+}
 .gear-button:focus-visible { outline-offset: 2px; border-radius: 50%; }
 .gear-art { display: block; width: 100%; height: 100%; overflow: visible; rotate: 55deg; }
 .gear-art path, .gear-art circle { vector-effect: non-scaling-stroke; }

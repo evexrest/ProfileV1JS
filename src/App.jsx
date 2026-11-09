@@ -60,7 +60,7 @@ function Home({ onGear }) {
     <>
       <div ref={field} className="field" aria-hidden="true" />
       <div ref={spot} className="spot" aria-hidden="true" />
-      <GearButton onClick={onGear} />
+      <GearButton onClick={onGear} white />
       <main ref={page} className="page">
         <div className="canvas-wrap">
           <div className="canvas">

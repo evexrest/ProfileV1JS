@@ -9,7 +9,7 @@ const EASE = 6
 // Frames are cached by angle, in steps this fine, over one period.
 const STEPS = 48
 
-export function GearButton({ onClick }) {
+export function GearButton({ onClick, white = false }) {
   const art = useRef(null)
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export function GearButton({ onClick }) {
   }, [])
 
   return (
-    <button type="button" className="gear-button" aria-label="Settings" onClick={onClick}>
+    <button type="button" className="gear-button" data-white={white || undefined} aria-label="Settings" onClick={onClick}>
       <svg viewBox={VIEWBOX} className="gear-art" aria-hidden="true">
         <g ref={art} />
       </svg>
