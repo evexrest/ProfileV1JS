@@ -67,6 +67,22 @@ function windows() {
   return out
 }
 
+// A rib: a narrow bar along the radius at angle a, from r0 to r1.
+function rib(a, r0, r1, half) {
+  const [ux, uy] = [Math.cos(a), Math.sin(a)]
+  const [vx, vy] = [-uy * half, ux * half]
+  return [[ux * r0 - vx, uy * r0 - vy], [ux * r1 - vx, uy * r1 - vy], [ux * r1 + vx, uy * r1 + vy], [ux * r0 + vx, uy * r0 + vy]]
+}
+// Short radial strokes, as one path: tick marks and engraved spokes.
+const radials = (count, r0, r1, phase = 0) => Array.from({ length: count }, (_, i) => {
+  const a = phase + (i / count) * Math.PI * 2
+  const [x0, y0] = polar(r0, a)
+  const [x1, y1] = polar(r1, a)
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)}L${x1.toFixed(2)} ${y1.toFixed(2)}`
+}).join("")
+// A regular polygon outline, engraved: the hex of a nut on the cog's face.
+const polygonD = (n, r, phase = 0) => loopD(Array.from({ length: n }, (_, i) => polar(r, phase + (i / n) * Math.PI * 2)))
+
 const circleD = (r, cx = 0, cy = 0) => `M${cx + r} ${cy}a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`
 const loopD = (loop) => "M" + loop.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join("L") + "Z"
 
@@ -87,18 +103,31 @@ const PARTS = [
   {
     name: "wheel", base: 1.5, top: 5, turn: -80,
     loops: [outer(ring(34, 64)), ...windows().map(hole), hole(ring(11.5, 32))],
-    lines: circleD(31.8) + Array.from({ length: 6 }, (_, i) => circleD(0.9, ...polar(31.8, (i / 6) * Math.PI * 2 + Math.PI / 6))).join(""),
+    lines: circleD(33) + radials(60, 32, 33) + Array.from({ length: 6 }, (_, i) => circleD(0.9, ...polar(32.4, (i / 6) * Math.PI * 2 + Math.PI / 6))).join(""),
+  },
+  {
+    // Raised work on the wheel: a rib down each spoke, a bead inside the rim
+    // and a boss where each spoke meets it.
+    name: "wheel-detail", base: 5, top: 5.9, turn: -80,
+    loops: [
+      outer(ring(31, 64)), hole(ring(29.6, 64)),
+      ...Array.from({ length: 6 }, (_, i) => outer(rib((i / 6) * Math.PI * 2, 16.2, 29.4, 0.8))),
+      ...Array.from({ length: 6 }, (_, i) => outer(ring(1.3, 14, ...polar(32.3, (i / 6) * Math.PI * 2)))),
+    ],
+    lines: Array.from({ length: 6 }, (_, i) => circleD(0.45, ...polar(32.3, (i / 6) * Math.PI * 2))).join(""),
   },
   {
     // A collar on the wheel's hub, round the cog.
     name: "collar", base: 5, top: 6.2, turn: -80,
     loops: [outer(ring(15, 40)), hole(ring(11.5, 32))],
-    lines: Array.from({ length: 6 }, (_, i) => circleD(0.6, ...polar(13.25, (i / 6) * Math.PI * 2))).join(""),
+    lines: Array.from({ length: 6 }, (_, i) => circleD(0.6, ...polar(13.25, (i / 6) * Math.PI * 2))).join("") + radials(24, 14.2, 15, Math.PI / 24) + circleD(12.3),
   },
   {
     name: "cog", base: 3, top: 7, turn: 320,
     loops: [outer(teeth(12, 7.4, 10))],
-    lines: circleD(3.4) + circleD(5.4) + circleD(0.8),
+    // The cog's face is where the zoom ends, so its detail is all engraved:
+    // a hex nut, a washer ring, a pitch circle with a dot per tooth.
+    lines: polygonD(6, 3.6, Math.PI / 6) + circleD(2) + circleD(0.6) + circleD(4.6) + radials(12, 4.6, 6.2, Math.PI / 12) + circleD(6.6) + Array.from({ length: 12 }, (_, i) => circleD(0.28, ...polar(7.0, (i / 12) * Math.PI * 2))).join(""),
   },
 ]
 const COG_TOP = PARTS.find((p) => p.name === "cog").top
