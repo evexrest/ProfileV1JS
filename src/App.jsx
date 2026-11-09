@@ -2,6 +2,7 @@ import { useRef, useState } from "react"
 
 import content from "@/content.json"
 import { Footer } from "@/components/site/Footer"
+import { GearButton } from "@/components/site/GearButton"
 import { Intro, Lede } from "@/components/site/Intro"
 import { MOUNTAINS, MountainPicker } from "@/components/site/MountainPicker"
 import { Name } from "@/components/site/Name"
@@ -58,6 +59,7 @@ export default function App() {
     <>
       <div ref={field} className="field" aria-hidden="true" />
       <div ref={spot} className="spot" aria-hidden="true" />
+      <GearButton />
       <main ref={page} className="page">
         <div className="canvas-wrap">
           <div className="canvas">
