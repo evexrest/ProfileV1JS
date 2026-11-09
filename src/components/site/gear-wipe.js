@@ -1,12 +1,12 @@
 // The page change: a white mechanism zooms out of the gear button. Three parts
 // turn against each other: a toothed outer ring, a spoked wheel inside it and a
 // solid cog at the hub, with open space between them where the page shows
-// through, and a smaller gear off to the side meshes with the ring's teeth.
-// Each part is a slab with real thickness, stacked at different heights (ring
-// lowest, cog highest), and the whole plane is tilted a little, seen from the
-// same side as the button: side walls show to the lower left. The zoom ends inside the cog's top face,
-// whose white then covers the whole window, and the white second page is
-// underneath. Going home plays it backwards, shrinking back into the button.
+// through. Each part is a slab with real thickness, stacked at different
+// heights (ring lowest, cog highest), and the whole plane is tilted a little,
+// seen from the same side as the button: side walls show to the lower left.
+// The zoom ends inside the cog's top face, whose white then covers the whole
+// window, and the white second page is underneath. Going home plays it
+// backwards, shrinking back into the button.
 //
 // Parts are outlines around (0, 0) on a radius of 50. Each frame turns them,
 // draws the side walls that face the viewer, shaded by which way they face,
@@ -57,16 +57,8 @@ function windows() {
 const circleD = (r, cx = 0, cy = 0) => `M${cx + r} ${cy}a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`
 const loopD = (loop) => "M" + loop.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join("L") + "Z"
 
-// The side gear meshes with the outer ring: 15 teeth on the same tooth size,
-// its centre at the sum of the two pitch radii, set where a ring gap points.
-const MESH_AT = (145 * Math.PI) / 180
-const SIDE = polar(47 + 19.6, MESH_AT)
-const RATIO = 36 / 15
-const shift = ([cx, cy], loop) => loop.map(([x, y]) => [x + cx, y + cy])
-const spin = (deg, loop) => { const a = (deg * Math.PI) / 180; return loop.map(([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]) }
-
-// base and top: heights in units. turn: degrees over the whole change, about
-// the part's centre. Parts are painted in this order, lowest first.
+// base and top: heights in units. turn: degrees over the whole change. Parts
+// are painted in this order, lowest first.
 const PARTS = [
   {
     name: "ring", base: 0, top: 3, turn: 110,
@@ -78,15 +70,6 @@ const PARTS = [
     name: "lip", base: 3, top: 4.2, turn: 110,
     loops: [outer(ring(38.6, 64)), hole(ring(36.5, 64))],
     lines: Array.from({ length: 24 }, (_, i) => circleD(0.35, ...polar(37.55, (i / 24) * Math.PI * 2))).join(""),
-  },
-  {
-    name: "side", base: 0.4, top: 3.4, turn: -110 * RATIO, center: SIDE,
-    loops: [
-      outer(shift(SIDE, spin(13, teeth(15, 16.6, 22.6)))),
-      hole(shift(SIDE, ring(3.6, 24))),
-      ...Array.from({ length: 5 }, (_, i) => hole(shift(SIDE, ring(2.8, 16, ...polar(10.6, (i / 5) * Math.PI * 2))))),
-    ],
-    lines: circleD(15, ...SIDE) + circleD(6, ...SIDE),
   },
   {
     name: "wheel", base: 1.5, top: 5, turn: -80,
@@ -122,7 +105,7 @@ const SVG = `
       ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
       <path class="gw-foot"/>
       <g class="gw-top" transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
-        <g class="gw-turn" data-center="${(p.center ?? [0, 0]).join(" ")}">
+        <g class="gw-turn">
           <path class="gw-body" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
           <path class="gw-line" d="${p.lines}"/>
           <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
@@ -139,13 +122,12 @@ function walls(part, deg) {
   const a = (deg * Math.PI) / 180
   const c = Math.cos(a)
   const s = Math.sin(a)
-  const [ox, oy] = part.center ?? [0, 0]
   const [tx, ty] = [-DOWN[0] * part.top, -DOWN[1] * part.top]
   const [bx, by] = [-DOWN[0] * part.base, -DOWN[1] * part.base]
   const buckets = Array.from({ length: SHADES }, () => [])
   const foot = []
   for (const loop of part.loops) {
-    const pts = loop.map(([x, y]) => [ox + (x - ox) * c - (y - oy) * s, oy + (x - ox) * s + (y - oy) * c])
+    const pts = loop.map(([x, y]) => [x * c - y * s, x * s + y * c])
     for (let i = 0; i < pts.length; i++) {
       const [x0, y0] = pts[i]
       const [x1, y1] = pts[(i + 1) % pts.length]
@@ -197,7 +179,7 @@ function mount(button) {
       const w = walls(part, deg)
       sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
       foot.setAttribute("d", w.foot)
-      turn.setAttribute("transform", `rotate(${deg} ${turn.dataset.center})`)
+      turn.setAttribute("transform", `rotate(${deg})`)
     }
     at.style.opacity = smooth(0, 0.08, p)
     // The lines fade as the cog's plain white takes over; the white sheet only
