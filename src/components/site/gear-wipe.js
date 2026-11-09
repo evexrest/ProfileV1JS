@@ -2,8 +2,8 @@
 // turn against each other: a toothed outer ring, a spoked wheel inside it and a
 // solid cog at the hub, with open space between them where the page shows
 // through. Each part is a slab with real thickness, stacked at different
-// heights (ring lowest, cog highest), and the whole plane is tilted a little,
-// seen from the same side as the button: side walls show to the lower left.
+// heights (ring lowest, cog highest), seen from exactly the button's angle:
+// side walls show to the lower left.
 // The zoom ends inside the cog's top face, whose white then covers the whole
 // window, and the white second page is underneath. Going home plays it
 // backwards, shrinking back into the button.
@@ -11,13 +11,26 @@
 // Parts are outlines around (0, 0) on a radius of 50. Each frame turns them,
 // draws the side walls that face the viewer, shaded by which way they face,
 // and lays the top face over them.
+import { VIEW } from "@/components/site/gear"
+
 const MS = 1100
 const START_R = 30 // px: about the drawn gear in the button
-const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at the end: inside its tilted top face
-// The tilt: the plane is turned and squashed so circles read as ellipses.
-const TILT = "rotate(-14) scale(1 0.8)"
-const DOWN = [-0.55, 0.83] // screen direction one unit of height drops: down and to the left
-const LIGHT = [-0.6, -0.8] // light from the upper left
+const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at the end: inside its top face, seen at an angle
+// The button's camera, as one matrix from the gear's plane to the screen: the
+// kit's isometric view (azimuth, elevation) turned by the button's picture
+// turn. A unit of height moves a point up the screen by cos(elevation), which
+// in plane units is cot(elevation) toward the viewer: DOWN is that direction.
+// LIGHT is the kit's light, so walls take the button's tones.
+const rad = (d) => (d * Math.PI) / 180
+const [sA, cA, sE, cE] = [Math.sin(rad(VIEW.azimuth)), Math.cos(rad(VIEW.azimuth)), Math.sin(rad(VIEW.elevation)), Math.cos(rad(VIEW.elevation))]
+const [sT, cT] = [Math.sin(rad(VIEW.turn)), Math.cos(rad(VIEW.turn))]
+const flat = [[sA, -cA], [cA * sE, sA * sE]]
+const CAMERA = [
+  cT * flat[0][0] - sT * flat[1][0], sT * flat[0][0] + cT * flat[1][0],
+  cT * flat[0][1] - sT * flat[1][1], sT * flat[0][1] + cT * flat[1][1],
+]
+const DOWN = [(cE / sE) * cA, (cE / sE) * sA]
+const LIGHT = [-sA, cA]
 const SHADES = 4
 
 const polar = (r, a) => [r * Math.cos(a), r * Math.sin(a)]
@@ -173,7 +186,7 @@ function mount(button) {
   function frame(p) {
     const e = easeInOut(p)
     const scale = s0 * (s1 / s0) ** e // zoom at an even pace on a log scale
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) ${TILT} translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${CAMERA.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
     for (const { p: part, sides, foot, turn } of parts) {
       const deg = part.turn * e
       const w = walls(part, deg)

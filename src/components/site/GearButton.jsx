@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 
-import { PERIOD, VIEWBOX, drawGear } from "@/components/site/gear"
+import { PERIOD, VIEW, VIEWBOX, drawGear } from "@/components/site/gear"
 
 // How fast the gear turns while the pointer is on it, in turns a second, and
 // how quickly it spins up and runs down.
@@ -59,7 +59,7 @@ export function GearButton({ onClick, white = false }) {
 
   return (
     <button type="button" className="gear-button" data-white={white || undefined} aria-label="Settings" onClick={onClick}>
-      <svg viewBox={VIEWBOX} className="gear-art" aria-hidden="true">
+      <svg viewBox={VIEWBOX} className="gear-art" style={{ rotate: VIEW.turn + "deg" }} aria-hidden="true">
         <g ref={art} />
       </svg>
     </button>

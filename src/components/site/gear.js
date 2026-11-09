@@ -19,14 +19,16 @@ const HOLE_R = 5
 export const PERIOD = (Math.PI * 2) / HOLES
 
 const SIZE = 96
-// Seen from higher than the kit's usual 30 degrees, so the face reads as a
-// gear. The page turns the picture 55 degrees (.gear-art in index.css) so the
-// thick edge shows on the lower left.
+// The camera, shared with the page transition (gear-wipe.js) so both gears are
+// seen from the same angle: higher than the kit's usual 30 degrees, so the face
+// reads as a gear, and the picture turned 55 degrees so the thick edge shows on
+// the lower left.
+export const VIEW = { azimuth: 45, elevation: 58, turn: 55 }
 const P = k.fitProjection(
   [...k.boxCorners({ x: -TIP, y: -TIP, w: TIP * 2, d: TIP * 2 }, 0, THICK + HUB_H)],
   SIZE,
   SIZE,
-  { pad: 6, azimuth: 45, elevation: 58 },
+  { pad: 6, azimuth: VIEW.azimuth, elevation: VIEW.elevation },
 )
 
 const polar = (r, a) => [r * Math.cos(a), r * Math.sin(a)]

@@ -334,7 +334,7 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 /* The drawing is replaced on every frame of the spin. If the pointer could land
    on it, the piece pressed would be gone by release and no click would fire,
    so clicks go to the button itself. */
-.gear-art { display: block; width: 100%; height: 100%; overflow: visible; rotate: 55deg; pointer-events: none; }
+.gear-art { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .gear-art path, .gear-art circle { vector-effect: non-scaling-stroke; }
 .gear-art .iso-fill { fill: var(--anatomy-paper); }
 .gear-art .iso-solid[data-lit] > .iso-fill { fill: var(--anatomy-face); }
@@ -377,10 +377,11 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 /* Side walls are many quads; a stroke in their own colour closes the hairline
    seams between neighbours. */
 .gear-wipe .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.gear-wipe .gw-side[data-shade="0"] { fill: #8aa1a2; stroke: #8aa1a2; }
-.gear-wipe .gw-side[data-shade="1"] { fill: #9fb3b4; stroke: #9fb3b4; }
-.gear-wipe .gw-side[data-shade="2"] { fill: #b3c4c5; stroke: #b3c4c5; }
-.gear-wipe .gw-side[data-shade="3"] { fill: #c9d6d7; stroke: #c9d6d7; }
+/* The same four wall tones as the white gear button. */
+.gear-wipe .gw-side[data-shade="0"] { fill: #9fb0b1; stroke: #9fb0b1; }
+.gear-wipe .gw-side[data-shade="1"] { fill: #b8c6c7; stroke: #b8c6c7; }
+.gear-wipe .gw-side[data-shade="2"] { fill: #cfd9da; stroke: #cfd9da; }
+.gear-wipe .gw-side[data-shade="3"] { fill: #e3eaea; stroke: #e3eaea; }
 .gear-wipe .gw-foot { fill: none; stroke: #3a8f91; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 .gear-wipe .gw-line { fill: none; stroke: #c3d2d3; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 /* The dark gear on the white second page fades in as the white gear lifts. */
