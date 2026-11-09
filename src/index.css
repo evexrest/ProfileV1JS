@@ -337,3 +337,15 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 /* A white hairline over the teal on the top edges, the hub and the holes. */
 .gear-art .gear-shine { fill: none; stroke: #fff; stroke-opacity: 0.7; stroke-width: 1.1px; stroke-linejoin: round; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
+
+/* ---------- the second page ---------- */
+
+/* ryo.lu's background: white, or #111 in dark mode. */
+.second-page {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .second-page { background: #111; }
+}
