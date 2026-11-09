@@ -142,12 +142,12 @@ const COG_TOP = PARTS.find((p) => p.name === "cog").top
 // The side walls of one part turned by `deg`: every edge whose outward side
 // faces down the screen gets a wall from its top edge to its bottom edge,
 // sorted into one of four tones by how it faces the light.
-function walls(part, deg) {
+function walls(part, deg, depth = 1) {
   const a = (deg * Math.PI) / 180
   const c = Math.cos(a)
   const s = Math.sin(a)
-  const [tx, ty] = [-DOWN[0] * part.top, -DOWN[1] * part.top]
-  const [bx, by] = [-DOWN[0] * part.base, -DOWN[1] * part.base]
+  const [tx, ty] = [-DOWN[0] * part.top * depth, -DOWN[1] * part.top * depth]
+  const [bx, by] = [-DOWN[0] * part.base * depth, -DOWN[1] * part.base * depth]
   const buckets = Array.from({ length: SHADES }, () => [])
   const foot = []
   for (const loop of part.loops) {
@@ -187,7 +187,7 @@ const markup = (sheet, id) => `
     <g data-part="${p.name}">
       ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
       <path class="gw-foot"/>
-      <g transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
+      <g class="gw-lift">
         <g class="gw-turn">
           <path class="gw-body" fill="url(#${id})" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
           <path class="gw-line" d="${p.lines}"/>
@@ -209,13 +209,16 @@ export function mechanism(svg, { sheet = false, view = VIEW.turn } = {}) {
   const at = svg.querySelector(".gw-at")
   const parts = PARTS.map((p) => {
     const g = svg.querySelector(`[data-part="${p.name}"]`)
-    return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), turn: g.querySelector(".gw-turn") }
+    return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), lift: g.querySelector(".gw-lift"), turn: g.querySelector(".gw-turn") }
   })
-  return function pose(cx, cy, scale, turn) {
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${camera.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
-    for (const { p: part, sides, foot, turn: g } of parts) {
+  // depth stretches every height: the transition deepens the parts as they
+  // grow so their walls read at full size; the button keeps depth 1.
+  return function pose(cx, cy, scale, turn, depth = 1) {
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${camera.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP * depth} ${DOWN[1] * COG_TOP * depth})`)
+    for (const { p: part, sides, foot, lift, turn: g } of parts) {
+      lift.setAttribute("transform", `translate(${-DOWN[0] * part.top * depth} ${-DOWN[1] * part.top * depth})`)
       const deg = part.turn * turn
-      const w = walls(part, deg)
+      const w = walls(part, deg, depth)
       sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
       foot.setAttribute("d", w.foot)
       g.setAttribute("transform", `rotate(${deg})`)
@@ -262,6 +265,10 @@ const WAVE2 = {
   weight: 0.8,
 }
 const TOTAL = MS * WAVE2.startAt + WAVE2.ms
+// The first wave deepens its parts as it leaves the button, and its lines
+// stay light, so the walls carry the shape as they do in the second wave.
+const DEPTH = 1.9
+const WAVE1_WEIGHT = 0.65
 
 // Runs the change from progress `from` to `to` over both waves (0 = in the
 // button, 1 = the second wave past the window's edges). midway() runs once
@@ -305,8 +312,8 @@ function run(button, from, to, midway, end) {
     const ms = P * TOTAL
     const p1 = Math.min(1, ms / MS)
     const e1 = easeInOut(p1)
-    pose1(...c1, REST_SCALE * (s1 / REST_SCALE) ** e1, t0 + e1) // zoom at an even pace on a log scale
-    wave(layers[0], p1, REST_WEIGHT, 1)
+    pose1(...c1, REST_SCALE * (s1 / REST_SCALE) ** e1, t0 + e1, 1 + (DEPTH - 1) * smooth(0, 0.45, p1)) // zoom at an even pace on a log scale
+    wave(layers[0], p1, REST_WEIGHT, WAVE1_WEIGHT)
     fill.style.opacity = smooth(0.97, 1, p1) // the white sheet only guards the end
 
     const p2 = Math.min(1, Math.max(0, (ms - MS * WAVE2.startAt) / WAVE2.ms))
