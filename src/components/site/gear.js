@@ -44,11 +44,6 @@ function gearRing(turn) {
   return ring
 }
 
-// The gear's flat outline, seen straight on, as CSS polygon percentages of a
-// square box. The page transition grows this shape out of the button.
-export const SILHOUETTE = gearRing(0).map(([x, y]) => `${(50 + (x / TIP) * 50).toFixed(2)}% ${(50 + (y / TIP) * 50).toFixed(2)}%`).join(", ")
-export const ROOT_SHARE = ROOT / TIP
-
 const S = (paths, style) => k.solidSvg(paths, style)
 const L = (d, style) => k.lineSvg(d, style)
 const flatOn = (cx, cy, r, z, steps = 28) => k.onTop(k.circleRing(cx, cy, r, steps), z, P, true)
