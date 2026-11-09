@@ -374,6 +374,14 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 .gear-wipe .gw-fill { fill: #fff; opacity: 0; }
 .gear-wipe .gw-body { fill: url(#gw-metal); }
 .gear-wipe .gw-rim { fill: none; stroke: #5cc8c9; stroke-width: 1.2px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+/* Side walls are many quads; a stroke in their own colour closes the hairline
+   seams between neighbours. */
+.gear-wipe .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.gear-wipe .gw-side[data-shade="0"] { fill: #8aa1a2; stroke: #8aa1a2; }
+.gear-wipe .gw-side[data-shade="1"] { fill: #9fb3b4; stroke: #9fb3b4; }
+.gear-wipe .gw-side[data-shade="2"] { fill: #b3c4c5; stroke: #b3c4c5; }
+.gear-wipe .gw-side[data-shade="3"] { fill: #c9d6d7; stroke: #c9d6d7; }
+.gear-wipe .gw-foot { fill: none; stroke: #3a8f91; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 .gear-wipe .gw-line { fill: none; stroke: #c3d2d3; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 /* The dark gear on the white second page fades in as the white gear lifts. */
 .second-page + .gear-button { animation: gear-arrive 400ms ease-out both; }
