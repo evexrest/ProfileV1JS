@@ -307,6 +307,10 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
 /* While the page changes, the mechanism is on the sheet, not in the button. */
 html.gear-moving .gear-button { visibility: hidden; }
+/* The black gear on the second page fades in as the white sheet lifts. */
+.second-page ~ .gear-button { animation: gear-arrive 350ms ease-out both; }
+@keyframes gear-arrive { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .second-page ~ .gear-button { animation: none; } }
 
 /* ---------- the second page ---------- */
 
@@ -321,14 +325,19 @@ html.gear-moving .gear-button { visibility: hidden; }
    during a page change, above everything. */
 .gear-wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; pointer-events: none; }
 .gw .gw-fill { fill: #fff; opacity: 0; }
-.gw .gw-body { fill: url(#gw-metal); }
+.gw { --stop-0: #ffffff; --stop-1: #f4f7f7; --stop-2: #e2e9e9; --side-0: #9fb0b1; --side-1: #b8c6c7; --side-2: #cfd9da; --side-3: #e3eaea; --line: #c3d2d3; }
+/* Black metal, for the white second page: the same teal rims. */
+.gw-dark { --stop-0: #2b3132; --stop-1: #1c2021; --stop-2: #121516; --side-0: #050606; --side-1: #0b0d0e; --side-2: #121516; --side-3: #1a1e1f; --line: #3b4547; }
+.gw .gw-stop-0 { stop-color: var(--stop-0); }
+.gw .gw-stop-1 { stop-color: var(--stop-1); }
+.gw .gw-stop-2 { stop-color: var(--stop-2); }
 .gw .gw-rim { fill: none; stroke: #5cc8c9; stroke-width: calc(var(--weight, 1) * 1.2px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 /* Side walls are many quads; a stroke in their own colour closes the hairline
    seams between neighbours. Four tones by facing, as the kit shades. */
 .gw .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.gw .gw-side[data-shade="0"] { fill: #9fb0b1; stroke: #9fb0b1; }
-.gw .gw-side[data-shade="1"] { fill: #b8c6c7; stroke: #b8c6c7; }
-.gw .gw-side[data-shade="2"] { fill: #cfd9da; stroke: #cfd9da; }
-.gw .gw-side[data-shade="3"] { fill: #e3eaea; stroke: #e3eaea; }
+.gw .gw-side[data-shade="0"] { fill: var(--side-0); stroke: var(--side-0); }
+.gw .gw-side[data-shade="1"] { fill: var(--side-1); stroke: var(--side-1); }
+.gw .gw-side[data-shade="2"] { fill: var(--side-2); stroke: var(--side-2); }
+.gw .gw-side[data-shade="3"] { fill: var(--side-3); stroke: var(--side-3); }
 .gw .gw-foot { fill: none; stroke: #3a8f91; stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
-.gw .gw-line { fill: none; stroke: #c3d2d3; stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-line { fill: none; stroke: var(--line); stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }

@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react"
 import { REST_SCALE, mechanism, setTurned, turnedNow, watchTurned } from "@/components/site/gear-mechanism"
 
 // The button is the mechanism at rest, the same one the page change zooms out.
+// dark draws it in black metal, for the white second page.
 // SIZE is the button's box in pixels; the mechanism sits at its centre.
 const SIZE = 78
 // While the pointer is on it the gear turns this fast, in page changes' worth
@@ -10,7 +11,7 @@ const SIZE = 78
 const SPIN = 1
 const EASE = 6
 
-export function GearButton({ onClick }) {
+export function GearButton({ onClick, dark = false }) {
   const art = useRef(null)
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function GearButton({ onClick }) {
 
   return (
     <button type="button" className="gear-button" aria-label="Settings" onClick={onClick}>
-      <svg ref={art} className="gw gear-art" viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true" />
+      <svg ref={art} className={dark ? "gw gw-dark gear-art" : "gw gear-art"} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true" />
     </button>
   )
 }

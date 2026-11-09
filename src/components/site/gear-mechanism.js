@@ -166,12 +166,16 @@ function walls(part, deg) {
 }
 
 
-const markup = (sheet) => `
+// Each drawing gets its own gradient id: the button and the sheet can be on
+// the page together in different finishes, and a shared id would make one
+// borrow the other's. The colours come from index.css (.gw, .gw-dark).
+let drawings = 0
+const markup = (sheet, id) => `
   <defs>
-    <radialGradient id="gw-metal" cx="0" cy="0" r="50" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.7" stop-color="#f4f7f7"/>
-      <stop offset="1" stop-color="#e2e9e9"/>
+    <radialGradient id="${id}" cx="0" cy="0" r="50" gradientUnits="userSpaceOnUse">
+      <stop class="gw-stop-0" offset="0"/>
+      <stop class="gw-stop-1" offset="0.7"/>
+      <stop class="gw-stop-2" offset="1"/>
     </radialGradient>
   </defs>
   ${sheet ? `<rect class="gw-fill" width="100%" height="100%"/>` : ""}
@@ -181,7 +185,7 @@ const markup = (sheet) => `
       <path class="gw-foot"/>
       <g transform="translate(${-DOWN[0] * p.top} ${-DOWN[1] * p.top})">
         <g class="gw-turn">
-          <path class="gw-body" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
+          <path class="gw-body" fill="url(#${id})" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
           <path class="gw-line" d="${p.lines}"/>
           <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
         </g>
@@ -195,7 +199,7 @@ const markup = (sheet) => `
 // 320). The cog's top face stays on the centre, so lower parts slide out from
 // under it to the lower left as the scale grows.
 export function mechanism(svg, { sheet = false } = {}) {
-  svg.innerHTML = markup(sheet)
+  svg.innerHTML = markup(sheet, "gw-metal-" + ++drawings)
   const at = svg.querySelector(".gw-at")
   const parts = PARTS.map((p) => {
     const g = svg.querySelector(`[data-part="${p.name}"]`)
