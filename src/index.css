@@ -313,7 +313,7 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
 }
 .gear-button:active { translate: 0 1px; }
 .gear-button:focus-visible { outline-offset: 2px; border-radius: 50%; }
-.gear-art { display: block; width: 100%; height: 100%; overflow: visible; }
+.gear-art { display: block; width: 100%; height: 100%; overflow: visible; rotate: 55deg; }
 .gear-art path, .gear-art circle { vector-effect: non-scaling-stroke; }
 .gear-art .iso-fill { fill: var(--anatomy-paper); }
 .gear-art .iso-solid[data-lit] > .iso-fill { fill: var(--anatomy-face); }

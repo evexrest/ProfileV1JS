@@ -1,13 +1,13 @@
 import * as k from "@/lib/iso-kit.js"
 
 // The settings gear, drawn as a small machined part lying flat and seen from
-// above at an angle: a ten-tooth spur gear with a groove round its rim, five
+// above at an angle, a chunky 14 units thick: a ten-tooth spur gear with a groove round its rim, five
 // lightening holes in its web, a raised hub held by five screws, and a keyed
 // bore. Units are world units; the picture is fitted to a 96 x 96 box.
 const TEETH = 10
 const TIP = 40
 const ROOT = 33
-const THICK = 7
+const THICK = 14
 const HUB_R = 12
 const HUB_H = 4
 const BORE_R = 4.6
@@ -19,11 +19,14 @@ const HOLE_R = 5
 export const PERIOD = (Math.PI * 2) / HOLES
 
 const SIZE = 96
+// Seen from higher than the kit's usual 30 degrees, so the face reads as a
+// gear. The page turns the picture 55 degrees (.gear-art in index.css) so the
+// thick edge shows on the lower left.
 const P = k.fitProjection(
   [...k.boxCorners({ x: -TIP, y: -TIP, w: TIP * 2, d: TIP * 2 }, 0, THICK + HUB_H)],
   SIZE,
   SIZE,
-  { pad: 6, azimuth: 45, elevation: 48 },
+  { pad: 6, azimuth: 45, elevation: 58 },
 )
 
 const polar = (r, a) => [r * Math.cos(a), r * Math.sin(a)]
