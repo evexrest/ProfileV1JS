@@ -26,12 +26,16 @@ const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at
 const VIEW = { azimuth: 45, elevation: 58, turn: 55 }
 const rad = (d) => (d * Math.PI) / 180
 const [sA, cA, sE, cE] = [Math.sin(rad(VIEW.azimuth)), Math.cos(rad(VIEW.azimuth)), Math.sin(rad(VIEW.elevation)), Math.cos(rad(VIEW.elevation))]
-const [sT, cT] = [Math.sin(rad(VIEW.turn)), Math.cos(rad(VIEW.turn))]
 const flat = [[sA, -cA], [cA * sE, sA * sE]]
-const CAMERA = [
-  cT * flat[0][0] - sT * flat[1][0], sT * flat[0][0] + cT * flat[1][0],
-  cT * flat[0][1] - sT * flat[1][1], sT * flat[0][1] + cT * flat[1][1],
-]
+// The plane-to-screen matrix for a picture turned `turn` degrees. The light
+// and the walls live in the gear's plane, so only the picture turns.
+function cameraFor(turn) {
+  const [sT, cT] = [Math.sin(rad(turn)), Math.cos(rad(turn))]
+  return [
+    cT * flat[0][0] - sT * flat[1][0], sT * flat[0][0] + cT * flat[1][0],
+    cT * flat[0][1] - sT * flat[1][1], sT * flat[0][1] + cT * flat[1][1],
+  ]
+}
 const DOWN = [(cE / sE) * cA, (cE / sE) * sA]
 const LIGHT = [-sA, cA]
 const SHADES = 4
@@ -193,12 +197,14 @@ const markup = (sheet, id) => `
     </g>`).join("")}
   </g>`
 
-// Draws the mechanism into an <svg>. pose() places it: centre in the svg's own
+// Draws the mechanism into an <svg> or a <g> inside one. view turns the
+// picture (degrees); the button and the first wave use VIEW.turn. pose() places it: centre in the svg's own
 // pixels, scale in pixels per unit, and turn, where 1 is how far the parts
 // turn over one page change (the ring 110 degrees, the wheel back 80, the cog
 // 320). The cog's top face stays on the centre, so lower parts slide out from
 // under it to the lower left as the scale grows.
-export function mechanism(svg, { sheet = false } = {}) {
+export function mechanism(svg, { sheet = false, view = VIEW.turn } = {}) {
+  const camera = cameraFor(view)
   svg.innerHTML = markup(sheet, "gw-metal-" + ++drawings)
   const at = svg.querySelector(".gw-at")
   const parts = PARTS.map((p) => {
@@ -206,7 +212,7 @@ export function mechanism(svg, { sheet = false } = {}) {
     return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), turn: g.querySelector(".gw-turn") }
   })
   return function pose(cx, cy, scale, turn) {
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${CAMERA.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${camera.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP} ${DOWN[1] * COG_TOP})`)
     for (const { p: part, sides, foot, turn: g } of parts) {
       const deg = part.turn * turn
       const w = walls(part, deg)
@@ -241,40 +247,83 @@ const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matc
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 const smooth = (a, b, t) => { const x = Math.min(1, Math.max(0, (t - a) / (b - a))); return x * x * (3 - 2 * x) }
 
-// Runs the change from progress `from` to `to` (0 = in the button, 1 = past
-// the window's edges). midway() runs once the sheet covers the button; end()
-// once the motion is over.
+// The second wave: a white gear with grey outlines that blooms out of a point
+// lower left once the first wave has nearly covered the window, at another
+// angle (its picture turned 90 degrees from the first) and spinning further,
+// so it spirals out. It exists only here.
+const WAVE2 = {
+  startAt: 0.72, // share of the first wave done when the second starts
+  ms: 1050,
+  at: [0.3, 0.66], // its centre, as shares of the window
+  view: VIEW.turn - 90,
+  phase: 0.43, // its parts' turn when it starts: out of step with the first
+  spin: 1.5, // how far its parts turn over the wave
+  fromR: 12, // px: its radius when it appears
+  weight: 0.8,
+}
+const TOTAL = MS * WAVE2.startAt + WAVE2.ms
+
+// Runs the change from progress `from` to `to` over both waves (0 = in the
+// button, 1 = the second wave past the window's edges). midway() runs once
+// the sheet covers the button; end() once the motion is over.
 function run(button, from, to, midway, end) {
   busy = true
   const r = button.getBoundingClientRect()
-  const cx = r.left + r.width / 2
-  const cy = r.top + r.height / 2
-  const far = Math.max(...[[0, 0], [innerWidth, 0], [0, innerHeight], [innerWidth, innerHeight]].map(([x, y]) => Math.hypot(x - cx, y - cy)))
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
   svg.setAttribute("class", "gw gear-wipe")
   svg.setAttribute("aria-hidden", "true")
+  const layers = ["gw-wave", "gw-wave gw-ghost"].map((c) => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g")
+    g.setAttribute("class", c)
+    svg.appendChild(g)
+    return g
+  })
   document.body.appendChild(svg)
-  const pose = mechanism(svg, { sheet: true })
-  const fill = svg.querySelector(".gw-fill")
-  const s1 = far / END_AT
+  const farFrom = (cx, cy) => Math.max(...[[0, 0], [innerWidth, 0], [0, innerHeight], [innerWidth, innerHeight]].map(([x, y]) => Math.hypot(x - cx, y - cy)))
+
+  // The first wave: out of the button.
+  const c1 = [r.left + r.width / 2, r.top + r.height / 2]
+  const pose1 = mechanism(layers[0], { sheet: true })
+  const fill = layers[0].querySelector(".gw-fill")
+  const s1 = farFrom(...c1) / END_AT
   // Going out, the turn runs from where the button stopped to one more; coming
   // home, from there back by one.
   const t0 = turnedNow() - from
-  function frame(p) {
-    const e = easeInOut(p)
-    pose(cx, cy, REST_SCALE * (s1 / REST_SCALE) ** e, t0 + e) // zoom at an even pace on a log scale
-    // The lines fade as the cog's plain white takes over; the white sheet only
-    // guards the last frame.
-    svg.style.setProperty("--ink", 1 - smooth(0.82, 0.98, p))
-    svg.style.setProperty("--weight", REST_WEIGHT + (1 - REST_WEIGHT) * smooth(0, 0.25, p))
-    fill.style.opacity = smooth(0.97, 1, p)
+
+  // The second wave.
+  const c2 = [innerWidth * WAVE2.at[0], innerHeight * WAVE2.at[1]]
+  const pose2 = mechanism(layers[1], { view: WAVE2.view })
+  const a2 = WAVE2.fromR / 50
+  const s2 = farFrom(...c2) / END_AT
+
+  function wave(layer, p, weightFrom, weight) {
+    // Lines fade as the cog's plain white takes over.
+    layer.style.setProperty("--ink", 1 - smooth(0.82, 0.98, p))
+    layer.style.setProperty("--weight", weightFrom + (weight - weightFrom) * smooth(0, 0.25, p))
+  }
+  function frame(P) {
+    const ms = P * TOTAL
+    const p1 = Math.min(1, ms / MS)
+    const e1 = easeInOut(p1)
+    pose1(...c1, REST_SCALE * (s1 / REST_SCALE) ** e1, t0 + e1) // zoom at an even pace on a log scale
+    wave(layers[0], p1, REST_WEIGHT, 1)
+    fill.style.opacity = smooth(0.97, 1, p1) // the white sheet only guards the end
+
+    const p2 = Math.min(1, Math.max(0, (ms - MS * WAVE2.startAt) / WAVE2.ms))
+    layers[1].style.display = p2 > 0 ? "" : "none"
+    if (p2 > 0) {
+      const e2 = 1 - (1 - p2) ** 2.4 // opens at once, settles as it covers
+      pose2(...c2, a2 * (s2 / a2) ** e2, WAVE2.phase + WAVE2.spin * e2)
+      wave(layers[1], p2, 0.5, WAVE2.weight)
+      layers[1].style.opacity = smooth(0, 0.1, p2) // it grows out of nothing
+    }
   }
   frame(from)
   document.documentElement.classList.add("gear-moving")
   midway?.()
   const start = performance.now()
   function tick(now) {
-    const t = Math.min(1, (now - start) / MS)
+    const t = Math.min(1, (now - start) / TOTAL)
     frame(from + (to - from) * t)
     if (t < 1) return requestAnimationFrame(tick)
     setTurned(t0 + to)

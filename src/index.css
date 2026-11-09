@@ -330,10 +330,13 @@ html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800m
 .gw { --stop-0: #ffffff; --stop-1: #f4f7f7; --stop-2: #e2e9e9; --side-0: #9fb0b1; --side-1: #b8c6c7; --side-2: #cfd9da; --side-3: #e3eaea; --line: #c3d2d3; }
 /* Black metal, for the white second page: the same teal rims. */
 .gw-dark { --stop-0: #2b3132; --stop-1: #1c2021; --stop-2: #121516; --side-0: #050606; --side-1: #0b0d0e; --side-2: #121516; --side-3: #1a1e1f; --line: #3b4547; }
+/* The transition's second wave: pure white, outlined in grey, with the side
+   walls only just off white so it keeps its depth. */
+.gw-ghost { --stop-0: #ffffff; --stop-1: #ffffff; --stop-2: #fafbfb; --side-0: #d6dbdc; --side-1: #e2e6e6; --side-2: #eceff0; --side-3: #f5f6f6; --line: #c4cacb; --rim: #9ea7a8; --foot: #b3babb; }
 .gw .gw-stop-0 { stop-color: var(--stop-0); }
 .gw .gw-stop-1 { stop-color: var(--stop-1); }
 .gw .gw-stop-2 { stop-color: var(--stop-2); }
-.gw .gw-rim { fill: none; stroke: #5cc8c9; stroke-width: calc(var(--weight, 1) * 1.2px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-rim { fill: none; stroke: var(--rim, #5cc8c9); stroke-width: calc(var(--weight, 1) * 1.2px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 /* Side walls are many quads; a stroke in their own colour closes the hairline
    seams between neighbours. Four tones by facing, as the kit shades. */
 .gw .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -341,5 +344,5 @@ html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800m
 .gw .gw-side[data-shade="1"] { fill: var(--side-1); stroke: var(--side-1); }
 .gw .gw-side[data-shade="2"] { fill: var(--side-2); stroke: var(--side-2); }
 .gw .gw-side[data-shade="3"] { fill: var(--side-3); stroke: var(--side-3); }
-.gw .gw-foot { fill: none; stroke: #3a8f91; stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-foot { fill: none; stroke: var(--foot, #3a8f91); stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
 .gw .gw-line { fill: none; stroke: var(--line); stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
