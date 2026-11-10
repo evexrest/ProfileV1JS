@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import defaults from "@/gears.json"
-import { mechanism } from "@/components/site/gear-mechanism"
+import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 
 // The gears on the second page: the same mechanism as the button, drawn large,
 // each turning slowly on its own. An editor lets you drag them about and set
@@ -28,7 +28,10 @@ const KEY = "second-page-gears"
 function saved() {
   try {
     const v = JSON.parse(window.localStorage.getItem(KEY))
-    if (Array.isArray(v) && v.every((g) => g && typeof g.id === "string")) return v
+    // Layouts saved before gears had models take each default gear's model.
+    if (Array.isArray(v) && v.every((g) => g && typeof g.id === "string")) {
+      return v.map((g) => (g.model ? g : { ...g, model: defaults.find((d) => d.id === g.id)?.model || "classic" }))
+    }
   } catch { /* nothing saved, or unreadable */ }
   return defaults
 }
@@ -46,7 +49,7 @@ function Gear({ gear, editing, selected, onGrab }) {
 
   useEffect(() => {
     const svg = art.current
-    const pose = mechanism(svg)
+    const pose = mechanism(svg, { model: live.current.model })
     const still = matchMedia("(prefers-reduced-motion: reduce)")
     // Each gear starts at its own turn, so they are never in step.
     let turn = [...live.current.id].reduce((s, c) => s + c.charCodeAt(0), 0) * 0.37
@@ -70,7 +73,7 @@ function Gear({ gear, editing, selected, onGrab }) {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [gear.model])
 
   const r = BASE * gear.scale
   return (
@@ -199,7 +202,7 @@ export function GearField() {
 
   function add() {
     const id = "g" + Date.now().toString(36)
-    setGears([...gears, { id, x: 0.5, y: 0.5, scale: 1.2, angle: 0, finish: "grey", speed: 0.2 }])
+    setGears([...gears, { id, x: 0.5, y: 0.5, scale: 1.2, angle: 0, finish: "grey", model: "classic", speed: 0.2 }])
     setPicked(id)
   }
   function remove() {
@@ -265,6 +268,17 @@ export function GearField() {
                 />
                 <span className="ge-value">{gear.speed === 0 ? "still" : (gear.speed > 0 ? "↻ " : "↺ ") + Math.abs(gear.speed).toFixed(2)}</span>
               </label>
+              <div className="ge-row" role="radiogroup" aria-label="Model">
+                <span className="ge-label">Model</span>
+                <div className="ge-finishes ge-models">
+                  {Object.entries(MODELS).map(([k, m]) => (
+                    <button
+                      key={k} type="button" role="radio" aria-checked={(gear.model || "classic") === k}
+                      className="ge-finish ge-model" onClick={() => change(gear.id, { model: k })}
+                    >{m.name}</button>
+                  ))}
+                </div>
+              </div>
               <div className="ge-row" role="radiogroup" aria-label="Finish">
                 <span className="ge-label">Finish</span>
                 <div className="ge-finishes">

@@ -1,6 +1,6 @@
 [
-  {"id": "a", "x": 0.24, "y": 0.64, "scale": 2.6, "angle": 0, "finish": "grey", "speed": 0.1},
-  {"id": "b", "x": 0.64, "y": 0.36, "scale": 1.8, "angle": 40, "finish": "grey", "speed": -0.16},
-  {"id": "c", "x": 0.8, "y": 0.76, "scale": 1.3, "angle": -25, "finish": "grey", "speed": 0.24},
-  {"id": "d", "x": 0.42, "y": 0.18, "scale": 0.9, "angle": 70, "finish": "grey", "speed": -0.3}
+  {"id": "a", "x": 0.24, "y": 0.64, "scale": 2.6, "angle": 0, "finish": "grey", "speed": 0.1, "model": "disc"},
+  {"id": "b", "x": 0.64, "y": 0.36, "scale": 1.8, "angle": 40, "finish": "grey", "speed": -0.16, "model": "fine"},
+  {"id": "c", "x": 0.8, "y": 0.76, "scale": 1.3, "angle": -25, "finish": "grey", "speed": 0.24, "model": "chunky"},
+  {"id": "d", "x": 0.42, "y": 0.18, "scale": 0.9, "angle": 70, "finish": "grey", "speed": -0.3, "model": "star"}
 ]

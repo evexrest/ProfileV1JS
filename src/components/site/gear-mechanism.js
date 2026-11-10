@@ -46,7 +46,7 @@ const area = (loop) => loop.reduce((s, [x, y], i) => { const [u, v] = loop[(i + 
 // points out of the material.
 const outer = (loop) => (area(loop) > 0 ? loop : loop.reverse())
 const hole = (loop) => (area(loop) < 0 ? loop : loop.reverse())
-const ring = (r, steps = 48, cx = 0, cy = 0) => Array.from({ length: steps }, (_, i) => { const [x, y] = polar(r, (i / steps) * Math.PI * 2); return [cx + x, cy + y] })
+const ringPts = (r, steps = 48, cx = 0, cy = 0) => Array.from({ length: steps }, (_, i) => { const [x, y] = polar(r, (i / steps) * Math.PI * 2); return [cx + x, cy + y] })
 
 // A ring of teeth: square-shouldered trapezoids between the root and the tip.
 function teeth(count, root, tip) {
@@ -58,14 +58,13 @@ function teeth(count, root, tip) {
   return pts
 }
 
-// The spoked wheel's five-sided windows between the spokes.
-function windows() {
+// The spoked wheel's windows between `n` spokes, from the rim's inside at
+// `inner` to the hub at `hub`. gap is half a spoke's width, in radians at the hub.
+function windows(n = 6, inner = 29.5, hub = 15.5, gap = 0.17) {
   const out = []
-  const inner = 29.5
-  const hub = 15.5
-  for (let i = 0; i < 6; i++) {
-    const a0 = (i / 6) * Math.PI * 2 + 0.17
-    const a1 = ((i + 1) / 6) * Math.PI * 2 - 0.17
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2 + gap
+    const a1 = ((i + 1) / n) * Math.PI * 2 - gap
     const pts = []
     for (let k = 0; k <= 8; k++) pts.push(polar(inner, a0 - 0.06 + ((a1 - a0 + 0.12) * k) / 8))
     for (let k = 8; k >= 0; k--) pts.push(polar(hub, a0 + ((a1 - a0) * k) / 8))
@@ -95,49 +94,89 @@ const loopD = (loop) => "M" + loop.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(
 
 // base and top: heights in units. turn: degrees over the whole change. Parts
 // are painted in this order, lowest first.
-const PARTS = [
-  {
+//
+// A model is a set of choices for the same machine: how many teeth the ring
+// has and how deep, whether it has lightening holes, a spoked wheel (spokes)
+// or a solid disc with round ports (ports), and how many teeth the hub cog
+// has. "classic" is the button and the page change; the rest are variations
+// for the large gears on the second page.
+export const MODELS = {
+  classic: { name: "Classic", teeth: 36, root: 44, holes: 12, spokes: 6, cog: 12 },
+  fine: { name: "Fine", teeth: 54, root: 46.4, holes: 0, spokes: 4, cog: 16 },
+  chunky: { name: "Chunky", teeth: 24, root: 43.5, holes: 8, spokes: 5, cog: 8 },
+  disc: { name: "Disc", teeth: 42, root: 45, holes: 0, ports: 8, cog: 10 },
+  star: { name: "Star", teeth: 30, root: 44, holes: 15, spokes: 3, cog: 12 },
+}
+
+const around = (n, fn, phase = 0) => Array.from({ length: n }, (_, i) => fn(phase + (i / n) * Math.PI * 2, i))
+
+function partsOf(m) {
+  const ring = {
     name: "ring", base: 0, top: 3, turn: 110,
-    loops: [outer(teeth(36, 44, 50)), hole(ring(36.5, 64)), ...Array.from({ length: 12 }, (_, i) => hole(ring(1.6, 10, ...polar(40.2, (i / 12) * Math.PI * 2))))],
-    lines: circleD(42.6),
-  },
-  {
-    // A lip round the ring's bore, standing a step above it.
+    loops: [outer(teeth(m.teeth, m.root, 50)), hole(ringPts(36.5, 64)), ...around(m.holes, (a) => hole(ringPts(1.6, 10, ...polar(40.2, a))))],
+    lines: circleD(m.root - 1.4) + (m.holes ? "" : around(m.teeth, (a) => circleD(0.35, ...polar(m.root - 2.6, a))).join("")),
+  }
+  // A lip round the ring's bore, standing a step above it.
+  const lip = {
     name: "lip", base: 3, top: 4.2, turn: 110,
-    loops: [outer(ring(38.6, 64)), hole(ring(36.5, 64))],
-    lines: Array.from({ length: 24 }, (_, i) => circleD(0.35, ...polar(37.55, (i / 24) * Math.PI * 2))).join(""),
-  },
-  {
-    name: "wheel", base: 1.5, top: 5, turn: -80,
-    loops: [outer(ring(34, 64)), ...windows().map(hole), hole(ring(11.5, 32))],
-    lines: circleD(33) + radials(60, 32, 33) + Array.from({ length: 6 }, (_, i) => circleD(0.9, ...polar(32.4, (i / 6) * Math.PI * 2 + Math.PI / 6))).join(""),
-  },
-  {
+    loops: [outer(ringPts(38.6, 64)), hole(ringPts(36.5, 64))],
+    lines: around(24, (a) => circleD(0.35, ...polar(37.55, a))).join(""),
+  }
+  let wheel, detail
+  if (m.ports) {
+    // A solid disc with round ports, each with a raised collar, and a bolt
+    // circle between them.
+    const portAt = (a) => polar(23, a) // ports of radius 5 with collars to 6.3: clear of the hub collar and the rim's bead
+    wheel = {
+      name: "wheel", base: 1.5, top: 5, turn: -80,
+      loops: [outer(ringPts(34, 64)), ...around(m.ports, (a) => hole(ringPts(5, 28, ...portAt(a)))), hole(ringPts(11.5, 32))],
+      lines: circleD(33) + radials(60, 32, 33) + circleD(16.2) + around(m.ports, (a) => circleD(0.7, ...polar(32.4, a)), Math.PI / m.ports).join(""),
+    }
+    detail = {
+      name: "wheel-detail", base: 5, top: 5.9, turn: -80,
+      loops: [
+        outer(ringPts(31, 64)), hole(ringPts(29.6, 64)),
+        ...around(m.ports, (a) => [outer(ringPts(6.3, 28, ...portAt(a))), hole(ringPts(5, 28, ...portAt(a)))]).flat(),
+      ],
+      lines: around(m.ports, (a) => circleD(0.4, ...polar(16.6, a)), Math.PI / m.ports).join(""),
+    }
+  } else {
     // Raised work on the wheel: a rib down each spoke, a bead inside the rim
     // and a boss where each spoke meets it.
-    name: "wheel-detail", base: 5, top: 5.9, turn: -80,
-    loops: [
-      outer(ring(31, 64)), hole(ring(29.6, 64)),
-      ...Array.from({ length: 6 }, (_, i) => outer(rib((i / 6) * Math.PI * 2, 16.2, 29.4, 0.8))),
-      ...Array.from({ length: 6 }, (_, i) => outer(ring(1.3, 14, ...polar(32.3, (i / 6) * Math.PI * 2)))),
-    ],
-    lines: Array.from({ length: 6 }, (_, i) => circleD(0.45, ...polar(32.3, (i / 6) * Math.PI * 2))).join(""),
-  },
-  {
-    // A collar on the wheel's hub, round the cog.
+    const gap = Math.min(0.17 * (6 / m.spokes), 0.3)
+    wheel = {
+      name: "wheel", base: 1.5, top: 5, turn: -80,
+      loops: [outer(ringPts(34, 64)), ...windows(m.spokes, 29.5, 15.5, gap).map(hole), hole(ringPts(11.5, 32))],
+      lines: circleD(33) + radials(60, 32, 33) + around(m.spokes, (a) => circleD(0.9, ...polar(32.4, a)), Math.PI / m.spokes).join(""),
+    }
+    detail = {
+      name: "wheel-detail", base: 5, top: 5.9, turn: -80,
+      loops: [
+        outer(ringPts(31, 64)), hole(ringPts(29.6, 64)),
+        ...around(m.spokes, (a) => outer(rib(a, 16.2, 29.4, 0.8))),
+        ...around(m.spokes, (a) => outer(ringPts(1.3, 14, ...polar(32.3, a)))),
+      ],
+      lines: around(m.spokes, (a) => circleD(0.45, ...polar(32.3, a))).join(""),
+    }
+  }
+  // A collar on the wheel's hub, round the cog.
+  const collar = {
     name: "collar", base: 5, top: 6.2, turn: -80,
-    loops: [outer(ring(15, 40)), hole(ring(11.5, 32))],
-    lines: Array.from({ length: 6 }, (_, i) => circleD(0.6, ...polar(13.25, (i / 6) * Math.PI * 2))).join("") + radials(24, 14.2, 15, Math.PI / 24) + circleD(12.3),
-  },
-  {
+    loops: [outer(ringPts(15, 40)), hole(ringPts(11.5, 32))],
+    lines: around(6, (a) => circleD(0.6, ...polar(13.25, a))).join("") + radials(24, 14.2, 15, Math.PI / 24) + circleD(12.3),
+  }
+  // The cog's face is where the page change's zoom ends, so its detail is all
+  // engraved: a hex nut, a washer ring, a pitch circle with a dot per tooth.
+  const cog = {
     name: "cog", base: 3, top: 7, turn: 320,
-    loops: [outer(teeth(12, 7.4, 10))],
-    // The cog's face is where the zoom ends, so its detail is all engraved:
-    // a hex nut, a washer ring, a pitch circle with a dot per tooth.
-    lines: polygonD(6, 3.6, Math.PI / 6) + circleD(2) + circleD(0.6) + circleD(4.6) + radials(12, 4.6, 6.2, Math.PI / 12) + circleD(6.6) + Array.from({ length: 12 }, (_, i) => circleD(0.28, ...polar(7.0, (i / 12) * Math.PI * 2))).join(""),
-  },
-]
-const COG_TOP = PARTS.find((p) => p.name === "cog").top
+    loops: [outer(teeth(m.cog, 7.4, 10))],
+    lines: polygonD(6, 3.6, Math.PI / 6) + circleD(2) + circleD(0.6) + circleD(4.6) + radials(m.cog, 4.6, 6.2, Math.PI / m.cog) + circleD(6.6) + around(m.cog, (a) => circleD(0.28, ...polar(7.0, a))).join(""),
+  }
+  return [ring, lip, wheel, detail, collar, cog]
+}
+const built = {}
+const partsFor = (model) => (built[model] ??= partsOf(MODELS[model] || MODELS.classic))
+const COG_TOP = 7
 
 // The side walls of one part turned by `deg`: every edge whose outward side
 // faces down the screen gets a wall from its top edge to its bottom edge,
@@ -174,7 +213,7 @@ function walls(part, deg, depth = 1) {
 // the page together in different finishes, and a shared id would make one
 // borrow the other's. The colours come from index.css (.gw, .gw-dark).
 let drawings = 0
-const markup = (sheet, id) => `
+const markup = (parts, sheet, id) => `
   <defs>
     <radialGradient id="${id}" cx="0" cy="0" r="50" gradientUnits="userSpaceOnUse">
       <stop class="gw-stop-0" offset="0"/>
@@ -183,7 +222,7 @@ const markup = (sheet, id) => `
     </radialGradient>
   </defs>
   ${sheet ? `<rect class="gw-fill" width="100%" height="100%"/>` : ""}
-  <g class="gw-at">${PARTS.map((p) => `
+  <g class="gw-at">${parts.map((p) => `
     <g data-part="${p.name}">
       ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
       <path class="gw-foot"/>
@@ -203,9 +242,10 @@ const markup = (sheet, id) => `
 // turn over one page change (the ring 110 degrees, the wheel back 80, the cog
 // 320). The cog's top face stays on the centre, so lower parts slide out from
 // under it to the lower left as the scale grows.
-export function mechanism(svg, { sheet = false, view = VIEW.turn } = {}) {
+export function mechanism(svg, { sheet = false, view = VIEW.turn, model = "classic" } = {}) {
   const camera = cameraFor(view)
-  svg.innerHTML = markup(sheet, "gw-metal-" + ++drawings)
+  const PARTS = partsFor(model)
+  svg.innerHTML = markup(PARTS, sheet, "gw-metal-" + ++drawings)
   const at = svg.querySelector(".gw-at")
   const parts = PARTS.map((p) => {
     const g = svg.querySelector(`[data-part="${p.name}"]`)

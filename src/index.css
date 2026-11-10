@@ -379,6 +379,8 @@ html:not(.gear-moving) .gear-field { animation: gear-arrive 800ms cubic-bezier(0
 .ge-finish-light { background: linear-gradient(#eef0f0, #d2d6d7); color: #1c2021; }
 .ge-finish-grey { background: linear-gradient(#d3d7d8, #adb3b4); color: #1c2021; }
 .ge-finish-graphite { background: linear-gradient(#8f9697, #6a7172); color: #fff; }
+.ge-models { flex-wrap: wrap; }
+.ge-model { flex: 1 0 auto; padding: 7px 8px; background: #fff; color: #1c2021; }
 .ge-finish[aria-checked="true"] { border-color: #1c2021; box-shadow: 0 0 0 2px rgba(28, 32, 33, 0.25); }
 .gear-editor-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 12px; border-top: 1px solid #edf1f1; }
 .ge-spacer { flex: 1; }
