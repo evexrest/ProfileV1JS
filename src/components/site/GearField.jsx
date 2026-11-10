@@ -15,8 +15,11 @@ import { mechanism } from "@/components/site/gear-mechanism"
 const BASE = 90
 const BOX = 2.7 // the svg's side, in radii: room for the walls, which fall to the lower left
 const DEPTH = 1.6 // thicker than the button, as the page change draws it
-const FINISHES = [["dark", "Black"], ["white", "White"], ["ghost", "Outline"]]
-const CLASS = { dark: "gw gw-dark", white: "gw", ghost: "gw gw-ghost" }
+// All grey, in three shades: no teal on this page. Layouts saved before the
+// shades existed (black, white, outline) draw in the middle grey.
+const FINISHES = [["light", "Light"], ["grey", "Grey"], ["graphite", "Dark"]]
+const CLASS = { light: "gw gw-grey gw-grey-light", grey: "gw gw-grey", graphite: "gw gw-grey gw-grey-dark" }
+const finishOf = (g) => (CLASS[g.finish] ? g.finish : "grey")
 const LIMITS = { scale: [0.4, 4], speed: [-0.6, 0.6] }
 
 // Edits are remembered in this browser only. Storage can be missing or
@@ -75,7 +78,7 @@ function Gear({ gear, editing, selected, onGrab }) {
       className={"field-gear" + (selected ? " is-selected" : "")}
       style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", rotate: gear.angle + "deg" }}
     >
-      <svg ref={art} className={CLASS[gear.finish] || "gw"} style={{ width: r * BOX, height: r * BOX }} aria-hidden="true" />
+      <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX }} aria-hidden="true" />
       {editing && (
         <button
           type="button"
@@ -196,7 +199,7 @@ export function GearField() {
 
   function add() {
     const id = "g" + Date.now().toString(36)
-    setGears([...gears, { id, x: 0.5, y: 0.5, scale: 1.2, angle: 0, finish: "white", speed: 0.2 }])
+    setGears([...gears, { id, x: 0.5, y: 0.5, scale: 1.2, angle: 0, finish: "grey", speed: 0.2 }])
     setPicked(id)
   }
   function remove() {
@@ -267,7 +270,7 @@ export function GearField() {
                 <div className="ge-finishes">
                   {FINISHES.map(([k, name]) => (
                     <button
-                      key={k} type="button" role="radio" aria-checked={gear.finish === k}
+                      key={k} type="button" role="radio" aria-checked={finishOf(gear) === k}
                       className={"ge-finish ge-finish-" + k} onClick={() => change(gear.id, { finish: k })}
                     >{name}</button>
                   ))}

@@ -305,6 +305,7 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
    them as the gear grows (REST_WEIGHT in gear-mechanism.js). */
 .gear-art { --weight: 0.4; }
 .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
+.second-page ~ .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(40, 48, 50, 0.25)); }
 /* While the page changes, the mechanism is on the sheet, not in the button. */
 html.gear-moving .gear-button { visibility: hidden; }
 /* The black gear on the second page fades in once the white sheet has lifted:
@@ -337,9 +338,9 @@ html:not(.gear-moving) .gear-field { animation: gear-arrive 800ms cubic-bezier(0
 }
 .field-gear-grab:active { cursor: grabbing; }
 .gear-field.is-editing .field-gear-grab:hover,
-.field-gear.is-selected .field-gear-grab { outline: 1.5px dashed #5cc8c9; outline-offset: 6px; }
+.field-gear.is-selected .field-gear-grab { outline: 1.5px dashed #8a9293; outline-offset: 6px; }
 .field-gear.is-selected .field-gear-grab { outline-style: solid; }
-.field-gear-grab:focus-visible { outline: 2px solid #1f9fb0; outline-offset: 6px; }
+.field-gear-grab:focus-visible { outline: 2px solid #4a5254; outline-offset: 6px; }
 
 .gear-edit-toggle, .ge-btn {
   font: 500 12px/1 var(--font-mono); letter-spacing: 0.04em; color: #1c2021;
@@ -363,22 +364,22 @@ html:not(.gear-moving) .gear-field { animation: gear-arrive 800ms cubic-bezier(0
 @keyframes ge-in { from { opacity: 0; translate: 0 6px; } }
 @media (max-width: 480px) { .gear-editor { right: 16px; bottom: 16px; } .gear-edit-toggle { left: 16px; bottom: 16px; } }
 .gear-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.gear-editor-title { font: 500 11px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #3a8f91; }
+.gear-editor-title { font: 500 11px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #5b6668; }
 .gear-editor-hint { margin: 4px 0 14px; color: #5b6668; }
 .gear-editor-body { display: grid; gap: 12px; margin-bottom: 14px; }
 .ge-row { display: grid; grid-template-columns: 52px 1fr 64px; align-items: center; gap: 10px; }
 .ge-label { font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; color: #5b6668; }
 .ge-value { font: 12px/1 var(--font-mono); color: #1c2021; text-align: right; font-variant-numeric: tabular-nums; }
-.ge-row input[type="range"] { width: 100%; accent-color: #1f9fb0; }
+.ge-row input[type="range"] { width: 100%; accent-color: #4a5254; }
 .ge-finishes { grid-column: 2 / 4; display: flex; gap: 6px; }
 .ge-finish {
   flex: 1; padding: 7px 0; border-radius: 8px; border: 1px solid #d5dcdd; cursor: pointer;
   font: 500 11px/1 var(--font-mono); transition: border-color 150ms ease, box-shadow 150ms ease;
 }
-.ge-finish-dark { background: #1c2021; color: #fff; }
-.ge-finish-white { background: linear-gradient(#fff, #e2e9e9); color: #1c2021; }
-.ge-finish-ghost { background: #fff; color: #5b6668; border-style: dashed; }
-.ge-finish[aria-checked="true"] { border-color: #1f9fb0; box-shadow: 0 0 0 2px rgba(31, 159, 176, 0.3); }
+.ge-finish-light { background: linear-gradient(#eef0f0, #d2d6d7); color: #1c2021; }
+.ge-finish-grey { background: linear-gradient(#d3d7d8, #adb3b4); color: #1c2021; }
+.ge-finish-graphite { background: linear-gradient(#8f9697, #6a7172); color: #fff; }
+.ge-finish[aria-checked="true"] { border-color: #1c2021; box-shadow: 0 0 0 2px rgba(28, 32, 33, 0.25); }
 .gear-editor-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 12px; border-top: 1px solid #edf1f1; }
 .ge-spacer { flex: 1; }
 .gear-editor-foot .ge-btn { padding: 8px 10px; font-size: 11px; }
@@ -390,22 +391,26 @@ html:not(.gear-moving) .gear-field { animation: gear-arrive 800ms cubic-bezier(0
   cursor: grab; touch-action: none;
 }
 .rotator:active { cursor: grabbing; }
-.rotator:focus-visible { outline: 2px solid #1f9fb0; outline-offset: 3px; }
+.rotator:focus-visible { outline: 2px solid #4a5254; outline-offset: 3px; }
 .rotator-ticks { position: absolute; inset: 4px; border-radius: 50%;
   background: repeating-conic-gradient(from -1deg, #aab8b9 0 2deg, transparent 2deg 30deg);
   -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 4px), #000 calc(50% - 3.5px));
   mask: radial-gradient(circle, transparent 0 calc(50% - 4px), #000 calc(50% - 3.5px)); }
 .rotator-arm { position: absolute; inset: 0; }
 .rotator-knob { position: absolute; left: 50%; top: 9px; width: 10px; height: 10px; translate: -50% 0; border-radius: 50%;
-  background: #1f9fb0; box-shadow: 0 1px 2px rgba(20, 30, 32, 0.3); }
+  background: #4a5254; box-shadow: 0 1px 2px rgba(20, 30, 32, 0.3); }
 
 /* The mechanism, in the button and on the sheet that covers the window
    during a page change, above everything. */
 .gear-wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; pointer-events: none; }
 .gw .gw-fill { fill: #fff; opacity: 0; }
 .gw { --stop-0: #ffffff; --stop-1: #f4f7f7; --stop-2: #e2e9e9; --side-0: #9fb0b1; --side-1: #b8c6c7; --side-2: #cfd9da; --side-3: #e3eaea; --line: #c3d2d3; }
-/* Black metal, for the white second page: the same teal rims. */
-.gw-dark { --stop-0: #2b3132; --stop-1: #1c2021; --stop-2: #121516; --side-0: #050606; --side-1: #0b0d0e; --side-2: #121516; --side-3: #1a1e1f; --line: #3b4547; }
+/* Black metal, for the white second page, rimmed in grey: no teal there. */
+.gw-dark { --stop-0: #2b3132; --stop-1: #1c2021; --stop-2: #121516; --side-0: #050606; --side-1: #0b0d0e; --side-2: #121516; --side-3: #1a1e1f; --line: #3b4547; --rim: #6b7475; --foot: #4a5254; }
+/* The second page's large gears: grey metal in three shades, grey rims. */
+.gw-grey { --stop-0: #d3d7d8; --stop-1: #c2c7c8; --stop-2: #adb3b4; --side-0: #6d7576; --side-1: #808889; --side-2: #959c9d; --side-3: #a9afb0; --line: #959c9d; --rim: #7a8283; --foot: #5d6566; }
+.gw-grey-light { --stop-0: #eef0f0; --stop-1: #e2e5e6; --stop-2: #d2d6d7; --side-0: #9aa1a2; --side-1: #aab0b1; --side-2: #babfc0; --side-3: #c9cdce; --line: #b6bbbc; --rim: #9aa1a2; --foot: #858c8d; }
+.gw-grey-dark { --stop-0: #8f9697; --stop-1: #7d8485; --stop-2: #6a7172; --side-0: #3a4041; --side-1: #464c4d; --side-2: #535a5b; --side-3: #606768; --line: #5a6162; --rim: #4d5455; --foot: #343a3b; }
 /* The transition's second wave: pure white, outlined in grey, with the side
    walls only just off white so it keeps its depth. */
 .gw-ghost { --stop-0: #ffffff; --stop-1: #ffffff; --stop-2: #fafbfb; --side-0: #d6dbdc; --side-1: #e2e6e6; --side-2: #eceff0; --side-3: #f5f6f6; --line: #c4cacb; --rim: #9ea7a8; --foot: #b3babb; }
