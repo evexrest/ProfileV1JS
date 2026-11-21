@@ -46,6 +46,13 @@
       "rows": [
         {
           "label": "Web app",
+          "bold": "Larry",
+          "text": "",
+          "tag": "GitHub",
+          "href": "https://github.com/adnjkm/larry"
+        },
+        {
+          "label": "Web app",
           "bold": "Cue",
           "text": "",
           "tag": "GitHub",
@@ -69,13 +76,6 @@
           "bold": "Doodle Gallery",
           "text": "",
           "tag": "Private"
-        },
-        {
-          "label": "Tool",
-          "bold": "Rate History",
-          "text": "",
-          "tag": "GitHub",
-          "href": "https://github.com/evexrest/rate-history"
         },
         {
           "label": "Tool",
