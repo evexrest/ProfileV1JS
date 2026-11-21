@@ -25,7 +25,7 @@ export function MountainPicker({ value, onChange }) {
           <ToggleGroupItem
             key={key}
             value={key}
-            className="h-auto min-w-0 rounded-full border border-border px-2 py-[0.15rem] font-mono text-[0.5625rem] leading-[1.55] font-medium tracking-[0.14em] text-muted-foreground uppercase hover:bg-transparent hover:text-primary data-[state=on]:border-primary/50 data-[state=on]:bg-primary/12 data-[state=on]:text-primary focus-visible:ring-0"
+            className="h-auto min-w-0 cursor-pointer data-[state=on]:cursor-default rounded-full border border-border px-2 py-[0.15rem] font-mono text-[0.5625rem] leading-[1.55] font-medium tracking-[0.14em] text-muted-foreground uppercase hover:bg-transparent hover:text-primary data-[state=on]:border-primary/50 data-[state=on]:bg-primary/12 data-[state=on]:text-primary focus-visible:ring-0"
           >
             {label}
           </ToggleGroupItem>
