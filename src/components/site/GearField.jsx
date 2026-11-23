@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import defaults from "@/gears.json"
 import { LAYOUT_STAMP } from "@/lib/layout-stamp"
 import { savedView } from "@/components/site/GearAvatar"
-import { MODELS, mechanism } from "@/components/site/gear-mechanism"
+import { MODELS, REST_TILT, mechanism } from "@/components/site/gear-mechanism"
 
 // The gears on the second page: the same mechanism as the button, drawn large,
 // each turning slowly on its own. An editor lets you drag them about and set
@@ -14,7 +14,9 @@ import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 // worth of turn a second (the cog turns 320 degrees per unit); negative runs
 // it backwards. opacity runs from 0.1 to 1; layouts saved before it existed
 // draw fully solid. front: true puts the gear in front of the avatar; without
-// it, the gear is behind.
+// it, the gear is behind. tilt is the angle it is seen from, in degrees: 90
+// straight at its front face, 0 edge on, -90 straight at its back (58, the
+// button's view, when not set).
 
 const BASE = 90
 const BOX = 2.7 // the svg's side, in radii: room for the walls, which fall to the lower left
@@ -26,6 +28,9 @@ const CLASS = { light: "gw gw-grey gw-grey-light", grey: "gw gw-grey", graphite:
 const finishOf = (g) => (CLASS[g.finish] ? g.finish : "grey")
 const LIMITS = { scale: [0.4, 4], speed: [-0.6, 0.6], opacity: [0.1, 1] }
 const opacityOf = (g) => g.opacity ?? 1
+const tiltOf = (g) => g.tilt ?? REST_TILT
+const VIEWS = [["Front", 90], ["Angled", REST_TILT], ["Edge", 0], ["Back", -90]]
+const TILT_EASE = 9 // per second: how fast a gear swings to a new tilt
 
 // Edits are remembered in this browser only, until a new layout is published
 // (layout-stamp.js); then the browser starts again from gears.json. Storage
@@ -60,6 +65,8 @@ function Gear({ gear, order, editing, selected, onGrab }) {
     const still = matchMedia("(prefers-reduced-motion: reduce)")
     // Each gear starts at its own turn, so they are never in step.
     let turn = [...live.current.id].reduce((s, c) => s + c.charCodeAt(0), 0) * 0.37
+    // The tilt drawn eases toward the gear's tilt, so a new view swings round.
+    let tilt = tiltOf(live.current)
     let last = performance.now()
     let drawn = ""
     let raf = 0
@@ -68,12 +75,14 @@ function Gear({ gear, order, editing, selected, onGrab }) {
       last = now
       const g = live.current
       if (!still.matches) turn += g.speed * dt
-      const key = still.matches ? String(g.scale) : ""
+      const goal = tiltOf(g)
+      tilt = still.matches || Math.abs(goal - tilt) < 0.05 ? goal : tilt + (goal - tilt) * (1 - Math.exp(-dt * TILT_EASE))
+      const key = still.matches ? g.scale + "/" + tilt : ""
       if (!still.matches || key !== drawn) {
         const r = BASE * g.scale
         const side = r * BOX
         svg.setAttribute("viewBox", `0 0 ${side} ${side}`)
-        pose(side / 2, side / 2, r / 50, turn, DEPTH)
+        pose(side / 2, side / 2, r / 50, turn, DEPTH, tilt)
         drawn = key
       }
       raf = requestAnimationFrame(tick)
@@ -311,6 +320,25 @@ export function GearField({ onEditing }) {
                 <span className="ge-label">Angle</span>
                 <Rotator value={gear.angle} onChange={(angle) => change(gear.id, { angle })} />
                 <span className="ge-value">{gear.angle}°</span>
+              </div>
+              <label className="ge-row">
+                <span className="ge-label">Tilt</span>
+                <input
+                  type="range" aria-label="Tilt: back, edge, front" min={-90} max={90} step="1" value={tiltOf(gear)}
+                  onChange={(e) => change(gear.id, { tilt: +e.target.value })}
+                />
+                <span className="ge-value">{tiltOf(gear)}°</span>
+              </label>
+              <div className="ge-row" role="group" aria-label="View">
+                <span className="ge-label">View</span>
+                <div className="ge-finishes ge-models">
+                  {VIEWS.map(([name, t]) => (
+                    <button
+                      key={name} type="button" aria-pressed={tiltOf(gear) === t}
+                      className="ge-finish ge-model" onClick={() => change(gear.id, { tilt: t })}
+                    >{name}</button>
+                  ))}
+                </div>
               </div>
               <label className="ge-row">
                 <span className="ge-label">Spin</span>

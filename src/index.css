@@ -410,7 +410,7 @@ html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800m
 .ge-finish-graphite { background: linear-gradient(#8f9697, #6a7172); color: #fff; }
 .ge-models { flex-wrap: wrap; }
 .ge-model { flex: 1 0 auto; padding: 7px 8px; background: #fff; color: #1c2021; }
-.ge-finish[aria-checked="true"] { border-color: #1c2021; box-shadow: 0 0 0 2px rgba(28, 32, 33, 0.25); }
+.ge-finish[aria-checked="true"], .ge-finish[aria-pressed="true"] { border-color: #1c2021; box-shadow: 0 0 0 2px rgba(28, 32, 33, 0.25); }
 .gear-editor-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 12px; border-top: 1px solid #edf1f1; }
 .ge-spacer { flex: 1; }
 .gear-editor-foot .ge-btn { padding: 8px 10px; font-size: 11px; }

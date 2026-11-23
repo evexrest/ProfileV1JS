@@ -18,25 +18,39 @@
 const MS = 1100
 const REST_R = 30 // px: the mechanism's radius in the button
 const END_AT = 5.4 // units from the cog's centre the farthest corner reaches at the end: inside its top face, seen at an angle
-// The camera: the kit's isometric view from azimuth 45, elevation 58, with the
-// picture turned 55 degrees, as one matrix from the gear's plane to the
-// screen. A unit of height moves a point up the screen by cos(elevation),
-// which in plane units is cot(elevation) toward the viewer: DOWN is that
-// direction. LIGHT is the kit's light.
+// The camera: the kit's isometric view from azimuth 45 at elevation 58, with
+// the picture turned 55 degrees. The elevation is the gear's tilt: 90 looks
+// straight at its front face, 0 is edge on, and below 0 the back face shows,
+// down to -90, straight at the back. A point p across the gear's plane at
+// height z lands at (p·W, p·U sin(tilt) - z cos(tilt)), U being the plane's
+// direction toward the viewer and W across the picture; then the picture
+// turns. LIGHT is the kit's light.
 const VIEW = { azimuth: 45, elevation: 58, turn: 55 }
+export const REST_TILT = VIEW.elevation
 const rad = (d) => (d * Math.PI) / 180
-const [sA, cA, sE, cE] = [Math.sin(rad(VIEW.azimuth)), Math.cos(rad(VIEW.azimuth)), Math.sin(rad(VIEW.elevation)), Math.cos(rad(VIEW.elevation))]
-const flat = [[sA, -cA], [cA * sE, sA * sE]]
-// The plane-to-screen matrix for a picture turned `turn` degrees. The light
-// and the walls live in the gear's plane, so only the picture turns.
-function cameraFor(turn) {
+const [sA, cA] = [Math.sin(rad(VIEW.azimuth)), Math.cos(rad(VIEW.azimuth))]
+const U = [cA, sA]
+const W = [sA, -cA]
+// The plane-to-screen matrix (m) for a picture turned `turn` degrees at a
+// tilt, and the screen step for one unit of height (up). The light and the
+// walls live in the gear's plane, so only the picture turns. Exactly edge on
+// the faces would have no area, and their strokes, which keep their width
+// whatever the scale, no scale to undo, so the tilt stays 0.6 degrees off it.
+function cameraFor(turn, tilt = VIEW.elevation) {
+  const t = rad(Math.abs(tilt) < 0.6 ? (tilt < 0 ? -0.6 : 0.6) : tilt)
+  const [sE, cE] = [Math.sin(t), Math.cos(t)]
   const [sT, cT] = [Math.sin(rad(turn)), Math.cos(rad(turn))]
-  return [
-    cT * flat[0][0] - sT * flat[1][0], sT * flat[0][0] + cT * flat[1][0],
-    cT * flat[0][1] - sT * flat[1][1], sT * flat[0][1] + cT * flat[1][1],
-  ]
+  const flat = [W, [sE * U[0], sE * U[1]]]
+  return {
+    m: [
+      cT * flat[0][0] - sT * flat[1][0], sT * flat[0][0] + cT * flat[1][0],
+      cT * flat[0][1] - sT * flat[1][1], sT * flat[0][1] + cT * flat[1][1],
+    ],
+    up: [sT * cE, -cT * cE],
+    above: sE > 0, // seeing the front (top) faces, not the back
+    walls: cE > 1e-4, // straight on, no wall shows
+  }
 }
-const DOWN = [(cE / sE) * cA, (cE / sE) * sA]
 const LIGHT = [-sA, cA]
 const SHADES = 4
 
@@ -172,23 +186,68 @@ function partsOf(m) {
     loops: [outer(teeth(m.cog, 7.4, 10))],
     lines: polygonD(6, 3.6, Math.PI / 6) + circleD(2) + circleD(0.6) + circleD(4.6) + radials(m.cog, 4.6, 6.2, Math.PI / m.cog) + circleD(6.6) + around(m.cog, (a) => circleD(0.28, ...polar(7.0, a))).join(""),
   }
-  return [ring, lip, wheel, detail, collar, cog]
+  const parts = [ring, lip, wheel, detail, collar, cog]
+  parts.forEach(boundsOf)
+  return parts
+}
+
+// How far a part reaches across the plane, for the painter's order: from its
+// bore (the centre, for a solid part) out to its farthest point.
+function boundsOf(part) {
+  let rmax = 0, outerMin = Infinity, bore = Infinity
+  for (const loop of part.loops) {
+    const d = loop.map(([x, y]) => Math.hypot(x, y))
+    rmax = Math.max(rmax, ...d)
+    if (area(loop) > 0) outerMin = Math.min(outerMin, ...d)
+    else {
+      const [cx, cy] = loop.reduce(([sx, sy], [x, y]) => [sx + x / loop.length, sy + y / loop.length], [0, 0])
+      if (Math.hypot(cx, cy) < 1) bore = Math.min(bore, ...d)
+    }
+  }
+  part.rmin = bore === Infinity ? 0 : Math.min(bore, outerMin)
+  part.rmax = rmax
+}
+
+// The order to paint the parts in, for one half of the gear (the far half,
+// beyond the axis, or the near half) seen from the front or the back. Parts
+// that don't overlap across the plane go by radius: on the far half the
+// outer one is farther away, on the near half the inner one. Parts stacked on
+// one another go by height: from the front the lower one is farther away.
+function orderOf(parts, near, above) {
+  const before = (a, b) => {
+    if (a.rmin >= b.rmax - 0.01) return !near
+    if (b.rmin >= a.rmax - 0.01) return near
+    const za = a.base + a.top, zb = b.base + b.top
+    return above ? za < zb : za > zb
+  }
+  const left = [...parts], out = []
+  while (left.length) {
+    const i = left.findIndex((a) => !left.some((b) => b !== a && before(b, a)))
+    out.push(...left.splice(Math.max(0, i), 1))
+  }
+  return out
 }
 const built = {}
 const partsFor = (model) => (built[model] ??= partsOf(MODELS[model] || MODELS.classic))
 const COG_TOP = 7
 
-// The side walls of one part turned by `deg`: every edge whose outward side
-// faces down the screen gets a wall from its top edge to its bottom edge,
-// sorted into one of four tones by how it faces the light.
-function walls(part, deg, depth = 1) {
+// The side walls of one part turned by `deg`, in screen units: every edge whose
+// outward side faces the viewer gets a wall from its top edge to its bottom
+// edge, sorted into one of four tones by how it faces the light, and into the
+// far or near half of the gear by where it is. The foot line runs along the
+// wall's far end: the bottom seen from the front, the top seen from the back.
+function walls(part, deg, depth, cam) {
+  const halves = [0, 1].map(() => ({ sides: Array.from({ length: SHADES }, () => []), foot: [] }))
+  if (!cam.walls) return halves
   const a = (deg * Math.PI) / 180
   const c = Math.cos(a)
   const s = Math.sin(a)
-  const [tx, ty] = [-DOWN[0] * part.top * depth, -DOWN[1] * part.top * depth]
-  const [bx, by] = [-DOWN[0] * part.base * depth, -DOWN[1] * part.base * depth]
-  const buckets = Array.from({ length: SHADES }, () => [])
-  const foot = []
+  const [m0, m1, m2, m3] = cam.m
+  const zt = part.top * depth
+  const zb = part.base * depth
+  const zf = cam.above ? zb : zt
+  const f = (v) => v.toFixed(2)
+  const at = (x, y, z) => `${f(m0 * x + m2 * y + cam.up[0] * z)} ${f(m1 * x + m3 * y + cam.up[1] * z)}`
   for (const loop of part.loops) {
     const pts = loop.map(([x, y]) => [x * c - y * s, x * s + y * c])
     for (let i = 0; i < pts.length; i++) {
@@ -197,21 +256,30 @@ function walls(part, deg, depth = 1) {
       const len = Math.hypot(x1 - x0, y1 - y0) || 1
       const nx = (y1 - y0) / len
       const ny = -(x1 - x0) / len
-      if (nx * DOWN[0] + ny * DOWN[1] <= 0) continue
+      if (nx * U[0] + ny * U[1] <= 0) continue
       const lit = (nx * LIGHT[0] + ny * LIGHT[1] + 1) / 2
       const shade = Math.min(SHADES - 1, Math.floor(lit * SHADES))
-      const f = (v) => v.toFixed(2)
-      buckets[shade].push(`M${f(x0 + tx)} ${f(y0 + ty)}L${f(x1 + tx)} ${f(y1 + ty)}L${f(x1 + bx)} ${f(y1 + by)}L${f(x0 + bx)} ${f(y0 + by)}Z`)
-      foot.push(`M${f(x0 + bx)} ${f(y0 + by)}L${f(x1 + bx)} ${f(y1 + by)}`)
+      const half = halves[(x0 + x1) * U[0] + (y0 + y1) * U[1] > 0 ? 1 : 0]
+      half.sides[shade].push(`M${at(x0, y0, zt)}L${at(x1, y1, zt)}L${at(x1, y1, zb)}L${at(x0, y0, zb)}Z`)
+      half.foot.push(`M${at(x0, y0, zf)}L${at(x1, y1, zf)}`)
     }
   }
-  return { sides: buckets.map((b) => b.join("")), foot: foot.join("") }
+  return halves
 }
 
+// Each part is drawn twice, once per half of the gear, its face clipped to
+// that half (in the gear's plane, before the part turns). The near half's clip
+// reaches a hair past the axis so the two halves of a face meet without a seam.
+const BIG = 400
+const halfD = (from, to) => loopD([
+  [W[0] * BIG + U[0] * from, W[1] * BIG + U[1] * from], [W[0] * BIG + U[0] * to, W[1] * BIG + U[1] * to],
+  [-W[0] * BIG + U[0] * to, -W[1] * BIG + U[1] * to], [-W[0] * BIG + U[0] * from, -W[1] * BIG + U[1] * from],
+])
+const HALVES = [["far", halfD(-BIG, 0)], ["near", halfD(-0.3, BIG)]]
 
-// Each drawing gets its own gradient id: the button and the sheet can be on
-// the page together in different finishes, and a shared id would make one
-// borrow the other's. The colours come from index.css (.gw, .gw-dark).
+// Each drawing gets its own gradient and clip ids: the button and the sheet
+// can be on the page together in different finishes, and a shared id would
+// make one borrow the other's. The colours come from index.css (.gw, .gw-dark).
 let drawings = 0
 const markup = (parts, sheet, id) => `
   <defs>
@@ -220,19 +288,24 @@ const markup = (parts, sheet, id) => `
       <stop class="gw-stop-1" offset="0.7"/>
       <stop class="gw-stop-2" offset="1"/>
     </radialGradient>
+    ${HALVES.map(([h, d]) => `<clipPath id="${id}-${h}" clipPathUnits="userSpaceOnUse"><path d="${d}"/></clipPath>`).join("")}
   </defs>
   ${sheet ? `<rect class="gw-fill" width="100%" height="100%"/>` : ""}
-  <g class="gw-at">${parts.map((p) => `
-    <g data-part="${p.name}">
-      ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
-      <path class="gw-foot"/>
-      <g class="gw-lift">
-        <g class="gw-turn">
-          <path class="gw-body" fill="url(#${id})" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
-          <path class="gw-line" d="${p.lines}"/>
-          <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
+  <g class="gw-at">${HALVES.map(([h]) => `
+    <g class="gw-half" data-half="${h}">${parts.map((p) => `
+      <g data-part="${p.name}">
+        ${Array.from({ length: SHADES }, (_, i) => `<path class="gw-side" data-shade="${i}"/>`).join("")}
+        <path class="gw-foot"/>
+        <g class="gw-lift">
+          <g clip-path="url(#${id}-${h})">
+            <g class="gw-turn">
+              <path class="gw-body" fill="url(#${id})" fill-rule="evenodd" d="${p.loops.map(loopD).join("")}"/>
+              <path class="gw-line" d="${p.lines}"/>
+              <path class="gw-rim" d="${p.loops.map(loopD).join("")}"/>
+            </g>
+          </g>
         </g>
-      </g>
+      </g>`).join("")}
     </g>`).join("")}
   </g>`
 
@@ -241,27 +314,47 @@ const markup = (parts, sheet, id) => `
 // pixels, scale in pixels per unit, and turn, where 1 is how far the parts
 // turn over one page change (the ring 110 degrees, the wheel back 80, the cog
 // 320). The cog's top face stays on the centre, so lower parts slide out from
-// under it to the lower left as the scale grows.
+// under it to the lower left as the scale grows. tilt is the camera's
+// elevation in degrees (see cameraFor): 58 unless given.
 export function mechanism(svg, { sheet = false, view = VIEW.turn, model = "classic" } = {}) {
-  const camera = cameraFor(view)
   const PARTS = partsFor(model)
   svg.innerHTML = markup(PARTS, sheet, "gw-metal-" + ++drawings)
   const at = svg.querySelector(".gw-at")
-  const parts = PARTS.map((p) => {
-    const g = svg.querySelector(`[data-part="${p.name}"]`)
-    return { p, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), lift: g.querySelector(".gw-lift"), turn: g.querySelector(".gw-turn") }
-  })
+  const halves = HALVES.map(([h]) => svg.querySelector(`[data-half="${h}"]`))
+  const parts = PARTS.map((p) => ({
+    p,
+    halves: halves.map((half) => {
+      const g = half.querySelector(`[data-part="${p.name}"]`)
+      return { g, sides: [...g.querySelectorAll(".gw-side")], foot: g.querySelector(".gw-foot"), lift: g.querySelector(".gw-lift"), turn: g.querySelector(".gw-turn") }
+    }),
+  }))
+  let tiltNow = null
+  let aboveNow = null
+  let cam = null
   // depth stretches every height: the transition deepens the parts as they
   // grow so their walls read at full size; the button keeps depth 1.
-  return function pose(cx, cy, scale, turn, depth = 1) {
-    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) matrix(${camera.join(" ")} 0 0) translate(${DOWN[0] * COG_TOP * depth} ${DOWN[1] * COG_TOP * depth})`)
-    for (const { p: part, sides, foot, lift, turn: g } of parts) {
-      lift.setAttribute("transform", `translate(${-DOWN[0] * part.top * depth} ${-DOWN[1] * part.top * depth})`)
+  return function pose(cx, cy, scale, turn, depth = 1, tilt = VIEW.elevation) {
+    if (tilt !== tiltNow) {
+      tiltNow = tilt
+      cam = cameraFor(view, tilt)
+      if (cam.above !== aboveNow) {
+        aboveNow = cam.above
+        halves.forEach((half, k) => orderOf(PARTS, k === 1, cam.above).forEach((p) => half.appendChild(parts[PARTS.indexOf(p)].halves[k].g)))
+      }
+    }
+    const [ux, uy] = cam.up
+    at.setAttribute("transform", `translate(${cx} ${cy}) scale(${scale}) translate(${-ux * COG_TOP * depth} ${-uy * COG_TOP * depth})`)
+    const m = cam.m.join(" ")
+    for (const { p: part, halves: hs } of parts) {
       const deg = part.turn * turn
-      const w = walls(part, deg, depth)
-      sides.forEach((el, i) => el.setAttribute("d", w.sides[i]))
-      foot.setAttribute("d", w.foot)
-      g.setAttribute("transform", `rotate(${deg})`)
+      const w = walls(part, deg, depth, cam)
+      const z = (cam.above ? part.top : part.base) * depth
+      hs.forEach((h, k) => {
+        h.sides.forEach((el, i) => el.setAttribute("d", w[k].sides[i].join("")))
+        h.foot.setAttribute("d", w[k].foot.join(""))
+        h.lift.setAttribute("transform", `translate(${ux * z} ${uy * z}) matrix(${m} 0 0)`)
+        h.turn.setAttribute("transform", `rotate(${deg})`)
+      })
     }
   }
 }
