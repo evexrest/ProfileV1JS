@@ -10,7 +10,11 @@
 // halo round the core, only worth it on dark pages), yaw, pitch, zoom, turn
 // (radians a second the camera circles; 0 holds it still), maxDpr, still
 // (draw one frame only), dark and light (hex colours the shading runs between;
-// black to white by default).
+// black to white by default), view ({ yaw, pitch } read every frame, so the
+// page can turn the camera; it overrides yaw and pitch), probe ({ on, x, y,
+// hit, onChange }: while on, says whether the figure is drawn near x, y, in CSS
+// px from the canvas's top left). The returned function has .redraw() for when
+// still is set and the view changes.
 
 export function mountGearAvatar(canvas, opts = {}) {
   /* ---------- math ---------- */
@@ -342,7 +346,7 @@ export function mountGearAvatar(canvas, opts = {}) {
 
   /* ---------- WebGL ---------- */
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true });
-  if (!gl) return () => {};
+  if (!gl) { const none = () => {}; none.redraw = () => {}; return none; }
 
   const VS = `#version 300 es
   precision highp float; precision highp int; precision highp sampler2D;
@@ -505,8 +509,9 @@ export function mountGearAvatar(canvas, opts = {}) {
   }
 
   /* ---------- camera ---------- */
-  let yaw = opts.yaw ?? 0.42;
-  const pitch = opts.pitch ?? 0.04, zoom = opts.zoom ?? 1, turn = opts.turn ?? 0.16;
+  const view = opts.view ?? { yaw: opts.yaw ?? 0.42, pitch: opts.pitch ?? 0.04 };
+  const zoom = opts.zoom ?? 1, turn = opts.turn ?? 0.16;
+  const probe = opts.probe, px = new Uint8Array(4 * 9 * 9);
 
   /* ---------- loop ---------- */
   let tPrev = performance.now(), tAnim = 0, tSpin = 0, raf = 0;
@@ -514,7 +519,8 @@ export function mountGearAvatar(canvas, opts = {}) {
   function frame(now) {
     const dt = Math.min(0.05, (now - tPrev) / 1000); tPrev = now;
     tAnim += dt; if (show.spin) tSpin += dt;
-    yaw += dt * turn;
+    view.yaw += dt * turn;
+    const { yaw, pitch } = view;
 
     const dpr = Math.min(opts.maxDpr ?? 2, window.devicePixelRatio || 1);
     const W = Math.round(canvas.clientWidth * dpr), H = Math.round(canvas.clientHeight * dpr);
@@ -544,12 +550,28 @@ export function mountGearAvatar(canvas, opts = {}) {
     gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_FAN, 0, 4, NS);
     gl.bindVertexArray(null);
 
+    // Is the figure under the pointer? Read a small square of the frame just
+    // drawn and look for any coverage.
+    if (probe) {
+      let hit = false;
+      if (probe.on && probe.x >= 0 && probe.y >= 0) {
+        const x = Math.round(probe.x * dpr) - 4, y = H - Math.round(probe.y * dpr) - 5;
+        if (x >= 0 && y >= 0 && x + 9 <= W && y + 9 <= H) {
+          gl.readPixels(x, y, 9, 9, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          for (let i = 3; i < px.length; i += 4) if (px[i] > 60) { hit = true; break; }
+        }
+      }
+      if (hit !== probe.hit) { probe.hit = hit; probe.onChange?.(hit); }
+    }
+
     if (!still) raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
 
-  return () => {
+  const stop = () => {
     cancelAnimationFrame(raf);
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   };
+  stop.redraw = () => { if (still) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); } };
+  return stop;
 }

@@ -144,7 +144,9 @@ function Rotator({ value, onChange }) {
   )
 }
 
-export function GearField() {
+// onEditing hears when the editor opens and closes (the avatar can be turned
+// only while it is open).
+export function GearField({ onEditing }) {
   const [gears, setGearsState] = useState(saved)
   const [editing, setEditing] = useState(false)
   const [picked, setPicked] = useState(null)
@@ -157,6 +159,7 @@ export function GearField() {
   }
   const change = (id, patch) => setGears(gears.map((g) => (g.id === id ? { ...g, ...patch } : g)))
   const gear = gears.find((g) => g.id === picked)
+  useEffect(() => { onEditing?.(editing) }, [editing, onEditing])
   const newId = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
 
   useEffect(() => {
@@ -318,7 +321,7 @@ export function GearField() {
               </div>
             </div>
           ) : (
-            <p className="gear-editor-hint">Click a gear to select it, then drag it to move it. Hold Option while dragging to pull off a copy.</p>
+            <p className="gear-editor-hint">Click a gear to select it, then drag it to move it. Hold Option while dragging to pull off a copy. Drag the figure to turn it; double-click it to face it front again.</p>
           )}
 
           <footer className="gear-editor-foot">
