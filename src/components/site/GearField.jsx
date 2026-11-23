@@ -32,6 +32,11 @@ const tiltOf = (g) => g.tilt ?? REST_TILT
 const VIEWS = [["Front", 90], ["Angled", REST_TILT], ["Edge", 0], ["Back", -90]]
 const TILT_EASE = 9 // per second: how fast a gear swings to a new tilt
 
+// The editor is for the site's owner: on the localhost, and on the live site
+// only at /second?edit, so visitors never see it. (Temporary: once his live
+// layout is saved into gears.json, the live site loses it entirely.)
+const EDITABLE = import.meta.env.DEV || new URLSearchParams(window.location.search).has("edit")
+
 // Edits are remembered in this browser only, until a new layout is published
 // (layout-stamp.js); then the browser starts again from gears.json. Storage
 // can be missing or blocked (private windows); the page then starts from
@@ -277,10 +282,10 @@ export function GearField({ onEditing }) {
   }
   async function copy() {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(gears, null, 2))
+      await navigator.clipboard.writeText(JSON.stringify({ gears, view: savedView() }, null, 2))
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
-    } catch { window.prompt("Copy the layout:", JSON.stringify(gears)) }
+    } catch { window.prompt("Copy the layout:", JSON.stringify({ gears, view: savedView() })) }
   }
 
   return (
@@ -295,7 +300,7 @@ export function GearField({ onEditing }) {
         ))}
       </div>
 
-      {!editing && (
+      {EDITABLE && !editing && (
         <button type="button" className="gear-edit-toggle" onClick={() => setEditing(true)}>Edit gears</button>
       )}
 
