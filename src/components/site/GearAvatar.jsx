@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import home from "@/avatar.json"
 import { mountGearAvatar } from "@/components/site/gear-avatar"
+import { LAYOUT_STAMP } from "@/lib/layout-stamp"
 
 // The gear avatar, standing in the middle of the second page. It is
 // decoration: clicks pass through it to the gears and their editor underneath.
@@ -10,8 +11,8 @@ import { mountGearAvatar } from "@/components/site/gear-avatar"
 // dragging turns the camera round it (sideways) and over it (up and down), and
 // a double-click faces it front again. Only the drawn figure catches the
 // pointer, so the gears behind its empty space can still be picked. The angle
-// is remembered in this browser, like the gear layout; until then it is the
-// site's default, src/avatar.json.
+// is remembered in this browser, like the gear layout, until a new layout is
+// published; otherwise it is the site's default, src/avatar.json.
 //
 // Building the splats takes a moment, so it starts just after the page has
 // changed; the page brings it in once drawn. The canvas is made here rather than in JSX
@@ -26,13 +27,13 @@ const SPEED = 0.008 // radians of turn per px dragged
 export function savedView() {
   try {
     const v = JSON.parse(window.localStorage.getItem(KEY))
-    if (v && Number.isFinite(v.yaw) && Number.isFinite(v.pitch)) return { yaw: v.yaw, pitch: v.pitch }
+    if (v && v.base === LAYOUT_STAMP && Number.isFinite(v.yaw) && Number.isFinite(v.pitch)) return { yaw: v.yaw, pitch: v.pitch }
   } catch { /* nothing saved, or unreadable */ }
   return { yaw: home.yaw, pitch: home.pitch }
 }
 function saveView(v) {
   const round = (n) => Math.round(n * 1000) / 1000
-  try { window.localStorage.setItem(KEY, JSON.stringify({ yaw: round(v.yaw), pitch: round(v.pitch) })) } catch { /* not remembered */ }
+  try { window.localStorage.setItem(KEY, JSON.stringify({ base: LAYOUT_STAMP, yaw: round(v.yaw), pitch: round(v.pitch) })) } catch { /* not remembered */ }
 }
 
 // onReady is called once the first frame is drawn, so the page can start its

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import defaults from "@/gears.json"
+import { LAYOUT_STAMP } from "@/lib/layout-stamp"
 import { savedView } from "@/components/site/GearAvatar"
 import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 
@@ -26,21 +27,20 @@ const finishOf = (g) => (CLASS[g.finish] ? g.finish : "grey")
 const LIMITS = { scale: [0.4, 4], speed: [-0.6, 0.6], opacity: [0.1, 1] }
 const opacityOf = (g) => g.opacity ?? 1
 
-// Edits are remembered in this browser only. Storage can be missing or
-// blocked (private windows); the page then starts from gears.json each time.
+// Edits are remembered in this browser only, until a new layout is published
+// (layout-stamp.js); then the browser starts again from gears.json. Storage
+// can be missing or blocked (private windows); the page then starts from
+// gears.json each time.
 const KEY = "second-page-gears"
 function saved() {
   try {
     const v = JSON.parse(window.localStorage.getItem(KEY))
-    // Layouts saved before gears had models take each default gear's model.
-    if (Array.isArray(v) && v.every((g) => g && typeof g.id === "string")) {
-      return v.map((g) => (g.model ? g : { ...g, model: defaults.find((d) => d.id === g.id)?.model || "classic" }))
-    }
+    if (v && v.base === LAYOUT_STAMP && Array.isArray(v.gears) && v.gears.every((g) => g && typeof g.id === "string")) return v.gears
   } catch { /* nothing saved, or unreadable */ }
   return defaults
 }
 function save(gears) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(gears)) } catch { /* not remembered, still shown */ }
+  try { window.localStorage.setItem(KEY, JSON.stringify({ base: LAYOUT_STAMP, gears })) } catch { /* not remembered, still shown */ }
 }
 
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v))
