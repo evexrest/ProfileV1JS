@@ -45,6 +45,9 @@ export function useFit(pageRef) {
     return () => {
       window.removeEventListener("resize", onResize)
       if (frame !== null) window.cancelAnimationFrame(frame)
+      // Leaving the page (for the second page) must not leave it locked.
+      document.body.classList.remove("arranged")
+      root.classList.remove("locked")
     }
   }, [pageRef])
 }

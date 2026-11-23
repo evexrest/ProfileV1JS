@@ -276,3 +276,183 @@ html.locked, html.locked body { height: 100%; overflow: hidden; }
     to   { opacity: 1;     translate: 0 0; }
   }
 }
+
+/* ---------- the settings gear ---------- */
+
+/* The gear button, fixed to the top right of the window. Its picture is the
+   same mechanism the page change zooms out (gear-mechanism.js). */
+.gear-button {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 20;
+  width: 78px;
+  height: 78px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: translate 300ms cubic-bezier(0.18, 1.6, 0.42, 1);
+}
+.gear-button:active { translate: 0 1px; }
+.gear-button:focus-visible { outline-offset: 2px; border-radius: 50%; }
+/* The drawing is redrawn on every frame of the spin. If the pointer could land
+   on it, the piece pressed would be gone by release and no click would fire,
+   so clicks go to the button itself. */
+.gear-art { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* Lines keep their pixel width at any scale, so at button size they are drawn
+   lighter, or the teal would crowd out the white. The page change thickens
+   them as the gear grows (REST_WEIGHT in gear-mechanism.js). */
+.gear-art { --weight: 0.4; }
+.gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(92, 200, 201, 0.35)); }
+.second-page ~ .gear-button:hover .gear-art { filter: drop-shadow(0 0 6px rgba(40, 48, 50, 0.25)); }
+/* While the page changes, the mechanism is on the sheet, not in the button. */
+html.gear-moving .gear-button { visibility: hidden; }
+/* The black gear on the second page fades in once the white sheet has lifted:
+   the animation starts only when gear-moving comes off, so none of it is spent
+   hidden under the sheet. */
+html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both; }
+@keyframes gear-arrive { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .second-page ~ .gear-button { animation: none; } }
+
+/* ---------- the second page ---------- */
+
+/* ryo.lu's light background, white, in light and dark mode alike. */
+.second-page {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+}
+
+/* The large gears on the second page, and their editor (GearField.jsx). */
+.gear-field { position: absolute; inset: 0; overflow: hidden; }
+
+/* The gear avatar in the middle of the second page (GearAvatar.jsx): above the
+   gears, below the editor, and out of the way of clicks except when editing. */
+.gear-avatar {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 5;
+  height: min(88vh, 860px); aspect-ratio: 3 / 4; max-width: 100vw;
+  pointer-events: none;
+}
+/* While the gear editor is open, the drawn figure (not its empty box) can be
+   grabbed and turned. */
+.gear-avatar.is-grabbable { pointer-events: auto; cursor: grab; touch-action: none; }
+.gear-avatar.is-dragging { cursor: grabbing; }
+.gear-avatar-canvas { display: block; width: 100%; height: 100%; }
+
+/* The second page's entrance (SecondPage.jsx sets data-arrive). Everything
+   waits hidden until the avatar is drawn and the page change has finished.
+   Then the avatar floats up from the bottom of the window as it fades in, and
+   the gears follow the same way, starting 500ms later and 90ms apart, nearest
+   him first (--i), so he leads the way up. The curve is fast then long and
+   soft, so they glide to a stop rather than land. */
+.second-page[data-arrive="wait"] :is(.gear-avatar, .field-gear) { opacity: 0; }
+.second-page[data-arrive="go"] .gear-avatar { animation: float-in 1800ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.second-page[data-arrive="go"] .field-gear {
+  animation: float-in 1600ms cubic-bezier(0.22, 1, 0.36, 1) calc(500ms + var(--i, 0) * 90ms) both;
+}
+@keyframes float-in { from { opacity: 0; transform: translateY(60vh); } }
+@media (prefers-reduced-motion: reduce) {
+  .second-page[data-arrive="go"] :is(.gear-avatar, .field-gear) { animation: gear-arrive 400ms ease both; }
+}
+.field-gear { position: absolute; width: 0; height: 0; }
+.field-gear .gw { position: absolute; left: 0; top: 0; translate: -50% -50%; display: block; overflow: visible; pointer-events: none; --weight: 0.6; }
+.field-gear-grab {
+  position: absolute; left: 0; top: 0; translate: -50% -50%;
+  width: calc(var(--r) * 2); height: calc(var(--r) * 2);
+  padding: 0; border: 0; border-radius: 50%; background: none;
+  cursor: grab; touch-action: none;
+}
+.field-gear-grab:active { cursor: grabbing; }
+.gear-field.is-editing .field-gear-grab:hover,
+.field-gear.is-selected .field-gear-grab { outline: 1.5px dashed #8a9293; outline-offset: 6px; }
+.field-gear.is-selected .field-gear-grab { outline-style: solid; }
+.field-gear-grab:focus-visible { outline: 2px solid #4a5254; outline-offset: 6px; }
+
+.gear-edit-toggle, .ge-btn {
+  font: 500 12px/1 var(--font-mono); letter-spacing: 0.04em; color: #1c2021;
+  padding: 9px 14px; border: 1px solid #d5dcdd; border-radius: 999px; background: #fff;
+  cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease, scale 120ms ease;
+}
+.gear-edit-toggle:hover, .ge-btn:hover:not(:disabled) { background: #f2f6f6; border-color: #b8c6c7; }
+.gear-edit-toggle:active, .ge-btn:active:not(:disabled) { scale: 0.97; }
+.ge-btn:disabled { opacity: 0.4; cursor: default; }
+.gear-edit-toggle { position: fixed; left: 18px; bottom: 18px; z-index: 25; }
+.ge-primary { background: #1c2021; border-color: #1c2021; color: #fff; }
+.ge-primary:hover:not(:disabled) { background: #2b3132; border-color: #2b3132; }
+
+.gear-editor {
+  position: fixed; right: 18px; bottom: 18px; z-index: 25; width: min(368px, calc(100vw - 32px));
+  padding: 14px 16px; border: 1px solid #dde3e4; border-radius: 14px; background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(20, 30, 32, 0.12), 0 1px 3px rgba(20, 30, 32, 0.08);
+  color: #1c2021; font: 13px/1.4 var(--font-sans);
+  animation: ge-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes ge-in { from { opacity: 0; translate: 0 6px; } }
+@media (max-width: 480px) { .gear-editor { right: 16px; bottom: 16px; } .gear-edit-toggle { left: 16px; bottom: 16px; } }
+.gear-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.gear-editor-title { font: 500 11px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #5b6668; }
+.gear-editor-hint { margin: 4px 0 14px; color: #5b6668; }
+.gear-editor-body { display: grid; gap: 12px; margin-bottom: 14px; }
+.ge-row { display: grid; grid-template-columns: 58px 1fr 64px; align-items: center; gap: 10px; }
+.ge-label { font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; color: #5b6668; }
+.ge-value { font: 12px/1 var(--font-mono); color: #1c2021; text-align: right; font-variant-numeric: tabular-nums; }
+.ge-row input[type="range"] { width: 100%; accent-color: #4a5254; }
+.ge-finishes { grid-column: 2 / 4; display: flex; gap: 6px; }
+.ge-finish {
+  flex: 1; padding: 7px 0; border-radius: 8px; border: 1px solid #d5dcdd; cursor: pointer;
+  font: 500 11px/1 var(--font-mono); transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.ge-finish-light { background: linear-gradient(#eef0f0, #d2d6d7); color: #1c2021; }
+.ge-finish-grey { background: linear-gradient(#d3d7d8, #adb3b4); color: #1c2021; }
+.ge-finish-graphite { background: linear-gradient(#8f9697, #6a7172); color: #fff; }
+.ge-models { flex-wrap: wrap; }
+.ge-model { flex: 1 0 auto; padding: 7px 8px; background: #fff; color: #1c2021; }
+.ge-finish[aria-checked="true"] { border-color: #1c2021; box-shadow: 0 0 0 2px rgba(28, 32, 33, 0.25); }
+.gear-editor-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 12px; border-top: 1px solid #edf1f1; }
+.ge-spacer { flex: 1; }
+.gear-editor-foot .ge-btn { padding: 8px 10px; font-size: 11px; }
+
+.rotator {
+  position: relative; width: 58px; height: 58px; border-radius: 50%; justify-self: start;
+  background: radial-gradient(circle at 50% 40%, #fff, #e8eeee); border: 1px solid #cdd6d7;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(20, 30, 32, 0.12);
+  cursor: grab; touch-action: none;
+}
+.rotator:active { cursor: grabbing; }
+.rotator:focus-visible { outline: 2px solid #4a5254; outline-offset: 3px; }
+.rotator-ticks { position: absolute; inset: 4px; border-radius: 50%;
+  background: repeating-conic-gradient(from -1deg, #aab8b9 0 2deg, transparent 2deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 4px), #000 calc(50% - 3.5px));
+  mask: radial-gradient(circle, transparent 0 calc(50% - 4px), #000 calc(50% - 3.5px)); }
+.rotator-arm { position: absolute; inset: 0; }
+.rotator-knob { position: absolute; left: 50%; top: 9px; width: 10px; height: 10px; translate: -50% 0; border-radius: 50%;
+  background: #4a5254; box-shadow: 0 1px 2px rgba(20, 30, 32, 0.3); }
+
+/* The mechanism, in the button and on the sheet that covers the window
+   during a page change, above everything. */
+.gear-wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; pointer-events: none; }
+.gw .gw-fill { fill: #fff; opacity: 0; }
+.gw { --stop-0: #ffffff; --stop-1: #f4f7f7; --stop-2: #e2e9e9; --side-0: #9fb0b1; --side-1: #b8c6c7; --side-2: #cfd9da; --side-3: #e3eaea; --line: #c3d2d3; }
+/* Black metal, for the white second page, rimmed in grey: no teal there. */
+.gw-dark { --stop-0: #2b3132; --stop-1: #1c2021; --stop-2: #121516; --side-0: #050606; --side-1: #0b0d0e; --side-2: #121516; --side-3: #1a1e1f; --line: #3b4547; --rim: #6b7475; --foot: #4a5254; }
+/* The second page's large gears: grey metal in three shades, grey rims. */
+.gw-grey { --stop-0: #d3d7d8; --stop-1: #c2c7c8; --stop-2: #adb3b4; --side-0: #6d7576; --side-1: #808889; --side-2: #959c9d; --side-3: #a9afb0; --line: #959c9d; --rim: #7a8283; --foot: #5d6566; }
+.gw-grey-light { --stop-0: #eef0f0; --stop-1: #e2e5e6; --stop-2: #d2d6d7; --side-0: #9aa1a2; --side-1: #aab0b1; --side-2: #babfc0; --side-3: #c9cdce; --line: #b6bbbc; --rim: #9aa1a2; --foot: #858c8d; }
+.gw-grey-dark { --stop-0: #8f9697; --stop-1: #7d8485; --stop-2: #6a7172; --side-0: #3a4041; --side-1: #464c4d; --side-2: #535a5b; --side-3: #606768; --line: #5a6162; --rim: #4d5455; --foot: #343a3b; }
+/* The transition's second wave: pure white, outlined in grey, with the side
+   walls only just off white so it keeps its depth. */
+.gw-ghost { --stop-0: #ffffff; --stop-1: #ffffff; --stop-2: #fafbfb; --side-0: #d6dbdc; --side-1: #e2e6e6; --side-2: #eceff0; --side-3: #f5f6f6; --line: #c4cacb; --rim: #9ea7a8; --foot: #b3babb; }
+.gw .gw-stop-0 { stop-color: var(--stop-0); }
+.gw .gw-stop-1 { stop-color: var(--stop-1); }
+.gw .gw-stop-2 { stop-color: var(--stop-2); }
+.gw .gw-rim { fill: none; stroke: var(--rim, #5cc8c9); stroke-width: calc(var(--weight, 1) * 1.2px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+/* Side walls are many quads; a stroke in their own colour closes the hairline
+   seams between neighbours. Four tones by facing, as the kit shades. */
+.gw .gw-side { stroke-width: 1px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.gw .gw-side[data-shade="0"] { fill: var(--side-0); stroke: var(--side-0); }
+.gw .gw-side[data-shade="1"] { fill: var(--side-1); stroke: var(--side-1); }
+.gw .gw-side[data-shade="2"] { fill: var(--side-2); stroke: var(--side-2); }
+.gw .gw-side[data-shade="3"] { fill: var(--side-3); stroke: var(--side-3); }
+.gw .gw-foot { fill: none; stroke: var(--foot, #3a8f91); stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
+.gw .gw-line { fill: none; stroke: var(--line); stroke-width: calc(var(--weight, 1) * 1px); vector-effect: non-scaling-stroke; opacity: var(--ink, 1); }
