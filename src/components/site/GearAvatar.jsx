@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react"
 
 import { mountGearAvatar } from "@/components/site/gear-avatar"
 
-// The gear avatar, standing in the middle of the second page and slowly
-// turning. It is decoration: clicks pass through it to the gears and their
+// The gear avatar, standing in the middle of the second page, facing the
+// visitor. It is decoration: clicks pass through it to the gears and their
 // editor underneath.
 //
 // Building the splats takes a moment, so it starts just after the page has
@@ -22,7 +22,12 @@ export function GearAvatar() {
       canvas = document.createElement("canvas")
       canvas.className = "gear-avatar-canvas"
       box.current.appendChild(canvas)
-      stop = mountGearAvatar(canvas, { spacing: 0.006, glow: false, maxDpr: 1.5, still })
+      stop = mountGearAvatar(canvas, {
+        spacing: 0.006, glow: false, maxDpr: 1.5, still,
+        // Facing the visitor, not turning. Shaded between the page gears'
+        // darkest wall grey and their lightest face grey, so it sits with them.
+        yaw: 0, turn: 0, dark: "#5d6566", light: "#f2f4f4",
+      })
       requestAnimationFrame(() => setReady(true))
     }, 120)
     return () => {

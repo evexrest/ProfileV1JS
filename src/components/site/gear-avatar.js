@@ -8,7 +8,9 @@
 // function that stops it. The canvas is transparent, so the page shows through.
 // opts: spacing (splat spacing in metres; larger = fewer splats), glow (soft
 // halo round the core, only worth it on dark pages), yaw, pitch, zoom, turn
-// (radians a second the camera circles), maxDpr, still (draw one frame only).
+// (radians a second the camera circles; 0 holds it still), maxDpr, still
+// (draw one frame only), dark and light (hex colours the shading runs between;
+// black to white by default).
 
 export function mountGearAvatar(canvas, opts = {}) {
   /* ---------- math ---------- */
@@ -399,11 +401,12 @@ export function mountGearAvatar(canvas, opts = {}) {
   }`;
   const FS = `#version 300 es
   precision highp float;
+  uniform vec3 uDark, uLight;
   in vec2 vP; in float vA; in float vL; out vec4 o;
   void main() {
     float r2 = dot(vP, vP); if (r2 > 9.) discard;
     float a = vA * exp(-0.5 * r2); if (a < 0.004) discard;
-    o = vec4(vec3(vL) * a, a);
+    o = vec4(mix(uDark, uLight, vL) * a, a);
   }`;
   function program(vs, fs) {
     const p = gl.createProgram();
@@ -438,6 +441,8 @@ export function mountGearAvatar(canvas, opts = {}) {
   const gearTex = gl.createTexture(); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, gearTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 4, NG, 0, gl.RGBA, gl.FLOAT, gearData);
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  gl.uniform3fv(U('uDark'), hex(opts.dark ?? '#000000')); gl.uniform3fv(U('uLight'), hex(opts.light ?? '#ffffff'));
   gl.uniform1i(U('uG'), 4); gl.uniform1i(U('uTW'), TW);
 
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
