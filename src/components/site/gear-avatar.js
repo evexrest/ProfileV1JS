@@ -6,6 +6,11 @@
 //
 // mountGearAvatar(canvas, opts) starts drawing into the canvas and returns a
 // function that stops it. The canvas is transparent, so the page shows through.
+// Each splat is drawn as one point, cut to its ellipse in the fragment shader,
+// and splats facing away from the camera are skipped: the GPU keeps every
+// vertex of a frame until it is drawn, so four corners a splat cost about
+// 60 MB more (2026-11-23).
+//
 // opts: spacing (splat spacing in metres; larger = fewer splats), glow (soft
 // halo round the core, only worth it on dark pages), yaw, pitch, zoom, turn
 // (radians a second the camera circles; 0 holds it still), maxDpr, still
@@ -230,14 +235,25 @@ export function mountGearAvatar(canvas, opts = {}) {
   }
 
   /* ---------- splats ---------- */
-  const A0 = [], A1 = [], A2 = [], A3 = [];
+  // Four RGBA float rows per splat, written straight into typed arrays (plain
+  // arrays of numbers took several times the memory while the figure was
+  // built). Room grows in whole texture rows, so the arrays upload as they are.
+  const TW = 2048;
+  let NSB = 0, cap = TW * 32;
+  let A0 = new Float32Array(cap * 4), A1 = new Float32Array(cap * 4), A2 = new Float32Array(cap * 4), A3 = new Float32Array(cap * 4);
+  function grow() {
+    cap = Math.ceil(cap * 1.5 / TW) * TW;
+    const more = (a) => { const b = new Float32Array(cap * 4); b.set(a); return b; };
+    A0 = more(A0); A1 = more(A1); A2 = more(A2); A3 = more(A3);
+  }
   function emit(gi, x, y, z, t1, t2, n, s1, s2, s3, alb, ao, op, unlit) {
-    const a = s1*s1, b = s2*s2, c = s3*s3;
-    A0.push(x, y, z, gi);
-    A1.push(a*t1[0]*t1[0] + b*t2[0]*t2[0] + c*n[0]*n[0], a*t1[0]*t1[1] + b*t2[0]*t2[1] + c*n[0]*n[1],
-            a*t1[0]*t1[2] + b*t2[0]*t2[2] + c*n[0]*n[2], a*t1[1]*t1[1] + b*t2[1]*t2[1] + c*n[1]*n[1]);
-    A2.push(a*t1[1]*t1[2] + b*t2[1]*t2[2] + c*n[1]*n[2], a*t1[2]*t1[2] + b*t2[2]*t2[2] + c*n[2]*n[2], op, ao);
-    if (unlit) A3.push(0, 0, 0, alb); else A3.push(n[0], n[1], n[2], Math.min(1, alb));
+    if (NSB === cap) grow();
+    const k = 4 * NSB++, a = s1*s1, b = s2*s2, c = s3*s3;
+    A0[k] = x; A0[k+1] = y; A0[k+2] = z; A0[k+3] = gi;
+    A1[k] = a*t1[0]*t1[0] + b*t2[0]*t2[0] + c*n[0]*n[0]; A1[k+1] = a*t1[0]*t1[1] + b*t2[0]*t2[1] + c*n[0]*n[1];
+    A1[k+2] = a*t1[0]*t1[2] + b*t2[0]*t2[2] + c*n[0]*n[2]; A1[k+3] = a*t1[1]*t1[1] + b*t2[1]*t2[1] + c*n[1]*n[1];
+    A2[k] = a*t1[1]*t1[2] + b*t2[1]*t2[2] + c*n[1]*n[2]; A2[k+1] = a*t1[2]*t1[2] + b*t2[2]*t2[2] + c*n[2]*n[2]; A2[k+2] = op; A2[k+3] = ao;
+    if (unlit) { A3[k] = A3[k+1] = A3[k+2] = 0; A3[k+3] = alb; } else { A3[k] = n[0]; A3[k+1] = n[1]; A3[k+2] = n[2]; A3[k+3] = Math.min(1, alb); }
   }
 
   const X = [1,0,0], Y = [0,1,0], ZP = [0,0,1], ZN = [0,0,-1];
@@ -342,7 +358,7 @@ export function mountGearAvatar(canvas, opts = {}) {
   const SPACING = opts.spacing ?? 0.0052;
   buildFigure();
   gears.forEach((g, i) => g.kind === 'core' ? genCore(i, g) : genGear(i, g, SPACING));
-  const NS = A0.length / 4, NG = gears.length;
+  const NS = NSB, NG = gears.length;
 
   /* ---------- WebGL ---------- */
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true });
@@ -351,9 +367,9 @@ export function mountGearAvatar(canvas, opts = {}) {
   const VS = `#version 300 es
   precision highp float; precision highp int; precision highp sampler2D;
   uniform sampler2D uS0, uS1, uS2, uS3, uG;
-  uniform mat3 uW; uniform vec3 uEye; uniform vec2 uFocal, uView; uniform int uTW;
-  in vec2 aPos; in uint aIdx;
-  out vec2 vP; out float vA; out float vL;
+  uniform mat3 uW; uniform vec3 uEye; uniform vec2 uFocal, uView; uniform int uTW; uniform float uMaxPt;
+  in uint aIdx;
+  out vec3 vQ; out float vR; out mediump float vA; out mediump float vL;
   void main() {
     int i = int(aIdx); ivec2 st = ivec2(i % uTW, i / uTW);
     vec4 s0 = texelFetch(uS0, st, 0);
@@ -366,7 +382,10 @@ export function mountGearAvatar(canvas, opts = {}) {
     if (vp.z < 0.05) { gl_Position = vec4(0., 0., 2., 1.); return; }
     vec2 ndc = uFocal * vp.xy / vp.z / (uView * 0.5);
     if (abs(ndc.x) > 1.3 || abs(ndc.y) > 1.3) { gl_Position = vec4(0., 0., 2., 1.); return; }
-    vec4 s1 = texelFetch(uS1, st, 0), s2 = texelFetch(uS2, st, 0), s3 = texelFetch(uS3, st, 0);
+    vec4 s3 = texelFetch(uS3, st, 0);
+    // Facing away: the gear's near side covers it, so don't draw it.
+    if (dot(s3.xyz, s3.xyz) > 0.25 && dot(R * s3.xyz, uEye - wp) < -0.15 * length(uEye - wp)) { gl_Position = vec4(0., 0., 2., 1.); return; }
+    vec4 s1 = texelFetch(uS1, st, 0), s2 = texelFetch(uS2, st, 0);
     mat3 S = mat3(s1.x, s1.y, s1.z, s1.y, s1.w, s2.x, s1.z, s2.x, s2.y);
     mat3 M = uW * R;
     mat3 Sv = M * S * transpose(M);
@@ -375,9 +394,7 @@ export function mountGearAvatar(canvas, opts = {}) {
     vec3 j1 = vec3(0., uFocal.y * iz, -uFocal.y * vp.y * iz * iz);
     float a = dot(j0, Sv * j0) + 0.3, b = dot(j0, Sv * j1), c = dot(j1, Sv * j1) + 0.3;
     float mid = 0.5 * (a + c), rad = length(vec2(0.5 * (a - c), b));
-    float l1 = mid + rad, l2 = max(mid - rad, 0.05);
-    vec2 e1 = abs(b) > 1e-9 ? normalize(vec2(b, l1 - a)) : (a >= c ? vec2(1., 0.) : vec2(0., 1.));
-    vec2 ax1 = e1 * min(3. * sqrt(l1), 600.), ax2 = vec2(-e1.y, e1.x) * min(3. * sqrt(l2), 600.);
+    float l1 = mid + rad;
 
     // shading: brushed-steel greys, light rig fixed to the camera
     float alb = s3.w, ao = s2.w, lum;
@@ -399,16 +416,21 @@ export function mountGearAvatar(canvas, opts = {}) {
           + 0.5 * dr * (0.35 + alb) + 0.14 * fres * ao;
       lum = 1. - exp(-1.45 * lum);
     }
-    vL = lum; vA = s2.z; vP = aPos * 3.;
-    vec2 off = (aPos.x * ax1 + aPos.y * ax2) * 2. / uView;
-    gl_Position = vec4(ndc + off, 0., 1.);
+    // One point per splat: a square round its 3-sigma ellipse, which the
+    // fragment shader cuts to shape with the inverse covariance (vQ).
+    vR = min(min(3. * sqrt(l1), 600.), uMaxPt * 0.5);
+    vQ = vec3(c, -b, a) / max(a * c - b * b, 1e-6);
+    vL = lum; vA = s2.z;
+    gl_PointSize = 2. * vR;
+    gl_Position = vec4(ndc, 0., 1.);
   }`;
   const FS = `#version 300 es
   precision highp float;
   uniform vec3 uDark, uLight;
-  in vec2 vP; in float vA; in float vL; out vec4 o;
+  in vec3 vQ; in float vR; in mediump float vA; in mediump float vL; out vec4 o;
   void main() {
-    float r2 = dot(vP, vP); if (r2 > 9.) discard;
+    vec2 d = (gl_PointCoord - 0.5) * (2. * vR); d.y = -d.y;
+    float r2 = vQ.x * d.x * d.x + 2. * vQ.y * d.x * d.y + vQ.z * d.y * d.y; if (r2 > 9.) discard;
     float a = vA * exp(-0.5 * r2); if (a < 0.004) discard;
     o = vec4(mix(uDark, uLight, vL) * a, a);
   }`;
@@ -426,9 +448,8 @@ export function mountGearAvatar(canvas, opts = {}) {
   const prog = program(VS, FS);
   const U = n => gl.getUniformLocation(prog, n);
 
-  const TW = 2048, TH = Math.ceil(NS / TW);
-  function dataTex(arr, unit) {
-    const data = new Float32Array(TW * TH * 4); data.set(arr);
+  const TH = Math.ceil(NS / TW);
+  function dataTex(data, unit) {
     const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TW, TH, 0, gl.RGBA, gl.FLOAT, data);
@@ -439,7 +460,7 @@ export function mountGearAvatar(canvas, opts = {}) {
   // keep only what the sorter needs
   const LP = new Float32Array(NS * 3), LG = new Uint16Array(NS);
   for (let i = 0; i < NS; i++) { LP[i*3] = A0[i*4]; LP[i*3+1] = A0[i*4+1]; LP[i*3+2] = A0[i*4+2]; LG[i] = A0[i*4+3]; }
-  A0.length = A1.length = A2.length = A3.length = 0;
+  A0 = A1 = A2 = A3 = null;
 
   const gearData = new Float32Array(NG * 16);
   const gearTex = gl.createTexture(); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, gearTex);
@@ -447,16 +468,13 @@ export function mountGearAvatar(canvas, opts = {}) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 4, NG, 0, gl.RGBA, gl.FLOAT, gearData);
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
   gl.uniform3fv(U('uDark'), hex(opts.dark ?? '#000000')); gl.uniform3fv(U('uLight'), hex(opts.light ?? '#ffffff'));
-  gl.uniform1i(U('uG'), 4); gl.uniform1i(U('uTW'), TW);
+  gl.uniform1i(U('uG'), 4); gl.uniform1i(U('uTW'), TW); gl.uniform1f(U('uMaxPt'), gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1]);
 
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-  const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(prog, 'aPos'); gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
   const order = new Uint32Array(NS);
   const idxBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, idxBuf); gl.bufferData(gl.ARRAY_BUFFER, order.byteLength, gl.DYNAMIC_DRAW);
   const aIdx = gl.getAttribLocation(prog, 'aIdx'); gl.enableVertexAttribArray(aIdx);
-  gl.vertexAttribIPointer(aIdx, 1, gl.UNSIGNED_INT, 0, 0); gl.vertexAttribDivisor(aIdx, 1);
+  gl.vertexAttribIPointer(aIdx, 1, gl.UNSIGNED_INT, 0, 0);
   gl.bindVertexArray(null);
 
   /* ---------- animation ---------- */
@@ -547,7 +565,7 @@ export function mountGearAvatar(canvas, opts = {}) {
     gl.uniform3fv(U('uEye'), eye); gl.uniform2f(U('uFocal'), focal, focal); gl.uniform2f(U('uView'), W, H);
     gl.bindBuffer(gl.ARRAY_BUFFER, idxBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, order);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_FAN, 0, 4, NS);
+    gl.bindVertexArray(vao); gl.drawArrays(gl.POINTS, 0, NS);
     gl.bindVertexArray(null);
 
     // Is the figure under the pointer? Read a small square of the frame just
