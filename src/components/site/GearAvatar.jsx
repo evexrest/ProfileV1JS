@@ -12,7 +12,7 @@ import { mountGearAvatar } from "@/components/site/gear-avatar"
 // is remembered in this browser, like the gear layout.
 //
 // Building the splats takes a moment, so it starts just after the page has
-// changed and fades in once drawn. The canvas is made here rather than in JSX
+// changed; the page brings it in once drawn. The canvas is made here rather than in JSX
 // so each mount gets a fresh WebGL context (React runs effects twice in
 // development, and a context that has been let go can't be used again).
 
@@ -33,7 +33,9 @@ function saveView(v) {
   try { window.localStorage.setItem(KEY, JSON.stringify({ yaw: round(v.yaw), pitch: round(v.pitch) })) } catch { /* not remembered */ }
 }
 
-export function GearAvatar({ editable = false }) {
+// onReady is called once the first frame is drawn, so the page can start its
+// entrance (SecondPage.jsx).
+export function GearAvatar({ editable = false, onReady }) {
   const box = useRef(null)
   const view = useRef(null)
   if (!view.current) view.current = savedView()
@@ -41,6 +43,8 @@ export function GearAvatar({ editable = false }) {
   const engine = useRef(null)
   const drag = useRef(null)
   const [ready, setReady] = useState(false)
+  const told = useRef(onReady)
+  useEffect(() => { told.current = onReady })
   const [over, setOver] = useState(false)
   const [dragging, setDragging] = useState(false)
 
@@ -58,7 +62,7 @@ export function GearAvatar({ editable = false }) {
         // the page gears' darkest wall grey and their lightest face grey.
         turn: 0, view: view.current, probe: probe.current, dark: "#5d6566", light: "#f2f4f4",
       })
-      requestAnimationFrame(() => setReady(true))
+      requestAnimationFrame(() => { setReady(true); told.current?.() })
     }, 120)
     return () => {
       clearTimeout(start)

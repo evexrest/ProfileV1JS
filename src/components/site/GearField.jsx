@@ -44,7 +44,10 @@ function save(gears) {
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v))
 const round = (v, d = 3) => Math.round(v * 10 ** d) / 10 ** d
 
-function Gear({ gear, editing, selected, onGrab }) {
+// The rotation sits on the drawing, not the gear's box, so the box is free to
+// move straight up in the page's entrance (order: its place in that, nearest
+// the middle first).
+function Gear({ gear, order, editing, selected, onGrab }) {
   const art = useRef(null)
   const live = useRef(gear)
   useEffect(() => { live.current = gear })
@@ -81,9 +84,9 @@ function Gear({ gear, editing, selected, onGrab }) {
   return (
     <div
       className={"field-gear" + (selected ? " is-selected" : "")}
-      style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", rotate: gear.angle + "deg" }}
+      style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", "--i": order }}
     >
-      <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX, opacity: opacityOf(gear) }} aria-hidden="true" />
+      <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX, opacity: opacityOf(gear), rotate: gear.angle + "deg" }} aria-hidden="true" />
       {editing && (
         <button
           type="button"
@@ -159,6 +162,10 @@ export function GearField({ onEditing }) {
   }
   const change = (id, patch) => setGears(gears.map((g) => (g.id === id ? { ...g, ...patch } : g)))
   const gear = gears.find((g) => g.id === picked)
+  // Entrance order: the gears rise after the avatar, nearest him first. Past
+  // the eighth they go together, so a crowded layout doesn't drag on.
+  const near = (g) => Math.hypot(g.x - 0.5, g.y - 0.5)
+  const order = new Map([...gears].sort((a, b) => near(a) - near(b)).map((g, i) => [g.id, Math.min(i, 8)]))
   useEffect(() => { onEditing?.(editing) }, [editing, onEditing])
   const newId = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
 
@@ -251,7 +258,7 @@ export function GearField({ onEditing }) {
         onPointerDown={(e) => e.target === field.current && setPicked(null)}
       >
         {gears.map((g) => (
-          <Gear key={g.id} gear={g} editing={editing} selected={editing && g.id === picked} onGrab={grab} />
+          <Gear key={g.id} gear={g} order={order.get(g.id)} editing={editing} selected={editing && g.id === picked} onGrab={grab} />
         ))}
       </div>
 
