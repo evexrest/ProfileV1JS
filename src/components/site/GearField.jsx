@@ -31,15 +31,6 @@ const opacityOf = (g) => g.opacity ?? 1
 const tiltOf = (g) => g.tilt ?? REST_TILT
 const VIEWS = [["Front", 90], ["Angled", REST_TILT], ["Edge", 0], ["Back", -90]]
 const TILT_EASE = 9 // per second: how fast a gear swings to a new tilt
-// The gears orbit the avatar: the whole layout turns slowly round the middle
-// of the window, where he stands, each gear keeping its distance from him.
-// orbit: false holds a gear where it was placed. While the editor is open the
-// orbit glides back to the layout as placed, so dragging moves gears to where
-// they were put; with reduced motion there is no orbit.
-const orbitsOf = (g) => g.orbit !== false
-const ORBIT_PERIOD = 90 // seconds for one turn, clockwise
-const ORBIT_EASE = 4 // per second: how fast the gears glide home for editing
-const TAU = Math.PI * 2
 
 // The editor is for the site's owner: on the localhost, and on the live site
 // only at /second?edit, so visitors never see it. (Temporary: once his live
@@ -68,9 +59,8 @@ const round = (v, d = 3) => Math.round(v * 10 ** d) / 10 ** d
 // The rotation sits on the drawing, not the gear's box, so the box is free to
 // move straight up in the page's entrance (order: its place in that, nearest
 // the middle first).
-function Gear({ gear, order, orbit, editing, selected, onGrab }) {
+function Gear({ gear, order, editing, selected, onGrab }) {
   const art = useRef(null)
-  const box = useRef(null)
   const live = useRef(gear)
   useEffect(() => { live.current = gear })
 
@@ -89,12 +79,6 @@ function Gear({ gear, order, orbit, editing, selected, onGrab }) {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       const g = live.current
-      // Where the orbit has carried it: its place turned round the middle.
-      const a = orbitsOf(g) ? orbit.angle : 0
-      const dx = (g.x - 0.5) * innerWidth
-      const dy = (g.y - 0.5) * innerHeight
-      const [c, s] = [Math.cos(a), Math.sin(a)]
-      box.current.style.translate = `${(dx * c - dy * s - dx).toFixed(1)}px ${(dx * s + dy * c - dy).toFixed(1)}px`
       if (!still.matches) turn += g.speed * dt
       const goal = tiltOf(g)
       tilt = still.matches || Math.abs(goal - tilt) < 0.05 ? goal : tilt + (goal - tilt) * (1 - Math.exp(-dt * TILT_EASE))
@@ -115,7 +99,6 @@ function Gear({ gear, order, orbit, editing, selected, onGrab }) {
   const r = BASE * gear.scale
   return (
     <div
-      ref={box}
       className={"field-gear" + (gear.front ? " is-front" : "") + (selected ? " is-selected" : "")}
       style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", "--i": order }}
     >
@@ -185,26 +168,6 @@ function Rotator({ value, onChange }) {
 export function GearField({ onEditing }) {
   const [gears, setGearsState] = useState(saved)
   const [editing, setEditing] = useState(false)
-  const orbit = useRef({ angle: 0 }).current
-  const editingNow = useRef(editing)
-  useEffect(() => { editingNow.current = editing })
-  useEffect(() => {
-    const still = matchMedia("(prefers-reduced-motion: reduce)")
-    let last = performance.now()
-    let raf = 0
-    function tick(now) {
-      const dt = Math.min(0.05, (now - last) / 1000)
-      last = now
-      if (editingNow.current || still.matches) {
-        let a = orbit.angle % TAU
-        if (a > Math.PI) a -= TAU
-        orbit.angle = Math.abs(a) < 1e-4 ? 0 : a * Math.exp(-dt * ORBIT_EASE)
-      } else orbit.angle += (dt * TAU) / ORBIT_PERIOD
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [orbit])
   const [picked, setPicked] = useState(null)
   const [copied, setCopied] = useState(false)
   const field = useRef(null)
@@ -333,7 +296,7 @@ export function GearField({ onEditing }) {
         onPointerDown={(e) => e.target === field.current && setPicked(null)}
       >
         {gears.map((g) => (
-          <Gear key={g.id} gear={g} order={order.get(g.id)} orbit={orbit} editing={editing} selected={editing && g.id === picked} onGrab={grab} />
+          <Gear key={g.id} gear={g} order={order.get(g.id)} editing={editing} selected={editing && g.id === picked} onGrab={grab} />
         ))}
       </div>
 
@@ -406,17 +369,6 @@ export function GearField({ onEditing }) {
                       key={k} type="button" role="radio" aria-checked={(gear.model || "classic") === k}
                       className="ge-finish ge-model" onClick={() => change(gear.id, { model: k })}
                     >{m.name}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="ge-row" role="radiogroup" aria-label="Orbit">
-                <span className="ge-label">Orbit</span>
-                <div className="ge-finishes">
-                  {[[true, "Orbits him"], [false, "Stays put"]].map(([on, name]) => (
-                    <button
-                      key={name} type="button" role="radio" aria-checked={orbitsOf(gear) === on}
-                      className="ge-finish ge-model" onClick={() => change(gear.id, { orbit: on })}
-                    >{name}</button>
                   ))}
                 </div>
               </div>
