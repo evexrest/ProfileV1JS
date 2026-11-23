@@ -5,12 +5,13 @@ import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 
 // The gears on the second page: the same mechanism as the button, drawn large,
 // each turning slowly on its own. An editor lets you drag them about and set
-// each one's size, angle, finish and spin.
+// each one's size, angle, spin, opacity and finish, and copy them.
 //
 // A gear's x and y are its centre as shares of the window, so a layout fits
 // any screen. scale 1 is a gear BASE px in radius. speed is in page changes'
 // worth of turn a second (the cog turns 320 degrees per unit); negative runs
-// it backwards.
+// it backwards. opacity runs from 0.1 to 1; layouts saved before it existed
+// draw fully solid.
 
 const BASE = 90
 const BOX = 2.7 // the svg's side, in radii: room for the walls, which fall to the lower left
@@ -20,7 +21,8 @@ const DEPTH = 1.6 // thicker than the button, as the page change draws it
 const FINISHES = [["light", "Light"], ["grey", "Grey"], ["graphite", "Dark"]]
 const CLASS = { light: "gw gw-grey gw-grey-light", grey: "gw gw-grey", graphite: "gw gw-grey gw-grey-dark" }
 const finishOf = (g) => (CLASS[g.finish] ? g.finish : "grey")
-const LIMITS = { scale: [0.4, 4], speed: [-0.6, 0.6] }
+const LIMITS = { scale: [0.4, 4], speed: [-0.6, 0.6], opacity: [0.1, 1] }
+const opacityOf = (g) => g.opacity ?? 1
 
 // Edits are remembered in this browser only. Storage can be missing or
 // blocked (private windows); the page then starts from gears.json each time.
@@ -81,7 +83,7 @@ function Gear({ gear, editing, selected, onGrab }) {
       className={"field-gear" + (selected ? " is-selected" : "")}
       style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", rotate: gear.angle + "deg" }}
     >
-      <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX }} aria-hidden="true" />
+      <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX, opacity: opacityOf(gear) }} aria-hidden="true" />
       {editing && (
         <button
           type="button"
@@ -155,16 +157,23 @@ export function GearField() {
   }
   const change = (id, patch) => setGears(gears.map((g) => (g.id === id ? { ...g, ...patch } : g)))
   const gear = gears.find((g) => g.id === picked)
+  const newId = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
 
   useEffect(() => {
     if (!editing) return
-    const esc = (e) => e.key === "Escape" && (picked ? setPicked(null) : setEditing(false))
-    window.addEventListener("keydown", esc)
-    return () => window.removeEventListener("keydown", esc)
-  }, [editing, picked])
+    const keys = (e) => {
+      if (e.key === "Escape") picked ? setPicked(null) : setEditing(false)
+      // Cmd+D (Ctrl+D) duplicates the selected gear, as in design tools.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && picked) { e.preventDefault(); duplicate() }
+    }
+    window.addEventListener("keydown", keys)
+    return () => window.removeEventListener("keydown", keys)
+  })
 
   // Grabbing a gear selects it and brings it to the front; dragging moves it.
-  // With the keyboard, the arrow keys move it (Shift for bigger steps).
+  // Holding Option (Alt) while grabbing drags off a copy and leaves the
+  // original where it was. With the keyboard, the arrow keys move it (Shift
+  // for bigger steps).
   function grab(e, g) {
     if (e.type === "keydown") {
       const step = e.shiftKey ? 0.05 : 0.01
@@ -177,9 +186,10 @@ export function GearField() {
       return
     }
     e.preventDefault()
-    setPicked(g.id)
-    const rest = gears.filter((o) => o.id !== g.id)
-    let moved = { ...g }
+    const copying = e.altKey
+    const rest = copying ? gears : gears.filter((o) => o.id !== g.id)
+    let moved = copying ? { ...g, id: newId() } : { ...g }
+    setPicked(moved.id)
     setGears([...rest, moved])
     const start = [e.clientX, e.clientY]
     const at = [g.x, g.y]
@@ -201,9 +211,17 @@ export function GearField() {
   }
 
   function add() {
-    const id = "g" + Date.now().toString(36)
+    const id = newId()
     setGears([...gears, { id, x: 0.5, y: 0.5, scale: 1.2, angle: 0, finish: "grey", model: "classic", speed: 0.2 }])
     setPicked(id)
+  }
+  // A copy of the selected gear, a little down and to the right so it shows,
+  // on top and selected.
+  function duplicate() {
+    if (!gear) return
+    const copy = { ...gear, id: newId(), x: round(clamp(gear.x + 0.03, [0, 1])), y: round(clamp(gear.y + 0.03, [0, 1])) }
+    setGears([...gears, copy])
+    setPicked(copy.id)
   }
   function remove() {
     setGears(gears.filter((g) => g.id !== picked))
@@ -268,6 +286,14 @@ export function GearField() {
                 />
                 <span className="ge-value">{gear.speed === 0 ? "still" : (gear.speed > 0 ? "↻ " : "↺ ") + Math.abs(gear.speed).toFixed(2)}</span>
               </label>
+              <label className="ge-row">
+                <span className="ge-label">Opacity</span>
+                <input
+                  type="range" aria-label="Opacity" min={LIMITS.opacity[0]} max={LIMITS.opacity[1]} step="0.05" value={opacityOf(gear)}
+                  onChange={(e) => change(gear.id, { opacity: +e.target.value })}
+                />
+                <span className="ge-value">{Math.round(opacityOf(gear) * 100)}%</span>
+              </label>
               <div className="ge-row" role="radiogroup" aria-label="Model">
                 <span className="ge-label">Model</span>
                 <div className="ge-finishes ge-models">
@@ -292,11 +318,12 @@ export function GearField() {
               </div>
             </div>
           ) : (
-            <p className="gear-editor-hint">Click a gear to select it, then drag it to move it.</p>
+            <p className="gear-editor-hint">Click a gear to select it, then drag it to move it. Hold Option while dragging to pull off a copy.</p>
           )}
 
           <footer className="gear-editor-foot">
             <button type="button" className="ge-btn" onClick={add}>Add gear</button>
+            <button type="button" className="ge-btn" onClick={duplicate} disabled={!gear} title="Duplicate (⌘D)">Duplicate</button>
             <button type="button" className="ge-btn" onClick={remove} disabled={!gear}>Delete</button>
             <span className="ge-spacer" />
             <button type="button" className="ge-btn" onClick={copy}>{copied ? "Copied" : "Copy layout"}</button>

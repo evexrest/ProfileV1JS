@@ -378,7 +378,7 @@ html:not(.gear-moving) .gear-field { animation: gear-arrive 800ms cubic-bezier(0
 .gear-editor-title { font: 500 11px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #5b6668; }
 .gear-editor-hint { margin: 4px 0 14px; color: #5b6668; }
 .gear-editor-body { display: grid; gap: 12px; margin-bottom: 14px; }
-.ge-row { display: grid; grid-template-columns: 52px 1fr 64px; align-items: center; gap: 10px; }
+.ge-row { display: grid; grid-template-columns: 58px 1fr 64px; align-items: center; gap: 10px; }
 .ge-label { font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; color: #5b6668; }
 .ge-value { font: 12px/1 var(--font-mono); color: #1c2021; text-align: right; font-variant-numeric: tabular-nums; }
 .ge-row input[type="range"] { width: 100%; accent-color: #4a5254; }
