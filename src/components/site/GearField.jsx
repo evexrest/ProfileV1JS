@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import defaults from "@/gears.json"
+import { savedView } from "@/components/site/GearAvatar"
 import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 
 // The gears on the second page: the same mechanism as the button, drawn large,
@@ -11,7 +12,8 @@ import { MODELS, mechanism } from "@/components/site/gear-mechanism"
 // any screen. scale 1 is a gear BASE px in radius. speed is in page changes'
 // worth of turn a second (the cog turns 320 degrees per unit); negative runs
 // it backwards. opacity runs from 0.1 to 1; layouts saved before it existed
-// draw fully solid.
+// draw fully solid. front: true puts the gear in front of the avatar; without
+// it, the gear is behind.
 
 const BASE = 90
 const BOX = 2.7 // the svg's side, in radii: room for the walls, which fall to the lower left
@@ -83,7 +85,7 @@ function Gear({ gear, order, editing, selected, onGrab }) {
   const r = BASE * gear.scale
   return (
     <div
-      className={"field-gear" + (selected ? " is-selected" : "")}
+      className={"field-gear" + (gear.front ? " is-front" : "") + (selected ? " is-selected" : "")}
       style={{ left: gear.x * 100 + "%", top: gear.y * 100 + "%", "--r": r + "px", "--i": order }}
     >
       <svg ref={art} className={CLASS[finishOf(gear)]} style={{ width: r * BOX, height: r * BOX, opacity: opacityOf(gear), rotate: gear.angle + "deg" }} aria-hidden="true" />
@@ -173,8 +175,12 @@ export function GearField({ onEditing }) {
     if (!editing) return
     const keys = (e) => {
       if (e.key === "Escape") picked ? setPicked(null) : setEditing(false)
-      // Cmd+D (Ctrl+D) duplicates the selected gear, as in design tools.
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && picked) { e.preventDefault(); duplicate() }
+      // Cmd+D (Ctrl+D) duplicates the selected gear, as in design tools, and
+      // Cmd+] / Cmd+[ bring it in front of the figure or send it behind.
+      if ((e.metaKey || e.ctrlKey) && picked) {
+        if (e.key.toLowerCase() === "d") { e.preventDefault(); duplicate() }
+        if (e.key === "]" || e.key === "[") { e.preventDefault(); change(picked, { front: e.key === "]" }) }
+      }
     }
     window.addEventListener("keydown", keys)
     return () => window.removeEventListener("keydown", keys)
@@ -241,6 +247,24 @@ export function GearField({ onEditing }) {
     if (!window.confirm("Put the gears back to the default layout? Your changes in this browser will be lost.")) return
     setGears(defaults)
     setPicked(null)
+  }
+  // On the localhost only: write this layout, and the figure's angle, into
+  // the site's files (src/gears.json and src/avatar.json) as what every
+  // visitor sees. The dev server does the writing (vite.config.js).
+  const [stored, setStored] = useState("")
+  async function store() {
+    try {
+      const r = await fetch("/__save-layout", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gears, view: savedView() }),
+      })
+      if (!r.ok) throw new Error(await r.text())
+      setStored("Saved")
+    } catch (err) {
+      setStored("Not saved")
+      console.error("Saving the layout failed:", err)
+    }
+    setTimeout(() => setStored(""), 1800)
   }
   async function copy() {
     try {
@@ -315,6 +339,17 @@ export function GearField({ onEditing }) {
                   ))}
                 </div>
               </div>
+              <div className="ge-row" role="radiogroup" aria-label="Depth">
+                <span className="ge-label">Depth</span>
+                <div className="ge-finishes">
+                  {[[false, "Behind figure", "⌘["], [true, "In front", "⌘]"]].map(([front, name, key]) => (
+                    <button
+                      key={name} type="button" role="radio" aria-checked={!!gear.front === front} title={key}
+                      className="ge-finish ge-model" onClick={() => change(gear.id, { front })}
+                    >{name}</button>
+                  ))}
+                </div>
+              </div>
               <div className="ge-row" role="radiogroup" aria-label="Finish">
                 <span className="ge-label">Finish</span>
                 <div className="ge-finishes">
@@ -336,6 +371,11 @@ export function GearField({ onEditing }) {
             <button type="button" className="ge-btn" onClick={duplicate} disabled={!gear} title="Duplicate (⌘D)">Duplicate</button>
             <button type="button" className="ge-btn" onClick={remove} disabled={!gear}>Delete</button>
             <span className="ge-spacer" />
+            {import.meta.env.DEV && (
+              <button type="button" className="ge-btn ge-primary" onClick={store} title="Make this the layout every visitor sees">
+                {stored || "Save to site"}
+              </button>
+            )}
             <button type="button" className="ge-btn" onClick={copy}>{copied ? "Copied" : "Copy layout"}</button>
             <button type="button" className="ge-btn" onClick={reset}>Reset</button>
           </footer>

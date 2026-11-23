@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 
+import home from "@/avatar.json"
 import { mountGearAvatar } from "@/components/site/gear-avatar"
 
 // The gear avatar, standing in the middle of the second page. It is
@@ -9,7 +10,8 @@ import { mountGearAvatar } from "@/components/site/gear-avatar"
 // dragging turns the camera round it (sideways) and over it (up and down), and
 // a double-click faces it front again. Only the drawn figure catches the
 // pointer, so the gears behind its empty space can still be picked. The angle
-// is remembered in this browser, like the gear layout.
+// is remembered in this browser, like the gear layout; until then it is the
+// site's default, src/avatar.json.
 //
 // Building the splats takes a moment, so it starts just after the page has
 // changed; the page brings it in once drawn. The canvas is made here rather than in JSX
@@ -21,12 +23,12 @@ const FRONT = { yaw: 0, pitch: 0.04 }
 const PITCH = [-1.1, 1.2] // radians: from well below to well above
 const SPEED = 0.008 // radians of turn per px dragged
 
-function savedView() {
+export function savedView() {
   try {
     const v = JSON.parse(window.localStorage.getItem(KEY))
     if (v && Number.isFinite(v.yaw) && Number.isFinite(v.pitch)) return { yaw: v.yaw, pitch: v.pitch }
   } catch { /* nothing saved, or unreadable */ }
-  return { ...FRONT }
+  return { yaw: home.yaw, pitch: home.pitch }
 }
 function saveView(v) {
   const round = (n) => Math.round(n * 1000) / 1000

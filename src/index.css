@@ -327,8 +327,9 @@ html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800m
 /* The large gears on the second page, and their editor (GearField.jsx). */
 .gear-field { position: absolute; inset: 0; overflow: hidden; }
 
-/* The gear avatar in the middle of the second page (GearAvatar.jsx): above the
-   gears, below the editor, and out of the way of clicks except when editing. */
+/* The gear avatar in the middle of the second page (GearAvatar.jsx): between
+   the gears behind it and those set in front (.is-front), below the editor,
+   and out of the way of clicks except when editing. */
 .gear-avatar {
   position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 5;
   height: min(88vh, 860px); aspect-ratio: 3 / 4; max-width: 100vw;
@@ -355,7 +356,8 @@ html:not(.gear-moving) .second-page ~ .gear-button { animation: gear-arrive 800m
 @media (prefers-reduced-motion: reduce) {
   .second-page[data-arrive="go"] :is(.gear-avatar, .field-gear) { animation: gear-arrive 400ms ease both; }
 }
-.field-gear { position: absolute; width: 0; height: 0; }
+.field-gear { position: absolute; width: 0; height: 0; z-index: 1; }
+.field-gear.is-front { z-index: 6; }
 .field-gear .gw { position: absolute; left: 0; top: 0; translate: -50% -50%; display: block; overflow: visible; pointer-events: none; --weight: 0.6; }
 .field-gear-grab {
   position: absolute; left: 0; top: 0; translate: -50% -50%;
