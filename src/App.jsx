@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import content from "@/content.json"
+import { SECOND_PAGE } from "@/features"
 import { Footer } from "@/components/site/Footer"
 import { GearButton } from "@/components/site/GearButton"
 import { wipeIn, wipeOut } from "@/components/site/gear-mechanism"
@@ -61,7 +62,7 @@ function Home({ onGear }) {
     <>
       <div ref={field} className="field" aria-hidden="true" />
       <div ref={spot} className="spot" aria-hidden="true" />
-      <GearButton onClick={onGear} />
+      {SECOND_PAGE && <GearButton onClick={onGear} />}
       <main ref={page} className="page">
         <div className="canvas-wrap">
           <div className="canvas">
@@ -86,11 +87,15 @@ function Home({ onGear }) {
 }
 
 // Two pages: the home page at /, and the second page at /second, which the
-// gear opens. The browser's back button moves between them.
+// gear opens. The browser's back button moves between them. While the second
+// page is switched off (features.js), /second shows the home page at /.
 const SECOND = "/second"
 
 export default function App() {
-  const [path, setPath] = useState(() => window.location.pathname)
+  const [path, setPath] = useState(() => {
+    if (!SECOND_PAGE && window.location.pathname === SECOND) window.history.replaceState(null, "", "/")
+    return window.location.pathname
+  })
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
     window.addEventListener("popstate", onPop)
@@ -103,8 +108,9 @@ export default function App() {
   }
   // The gear grows out over the home page to open the second page, and shrinks
   // back into itself to return home.
-  const open = (e) => wipeOut(e.currentTarget, () => go(SECOND))
-  const close = (e) => wipeIn(e.currentTarget, () => go("/"))
-  if (path === SECOND) return <SecondPage onGear={close} />
+  // Only set up while the second page is on, so the build drops it when off.
+  const open = SECOND_PAGE ? (e) => wipeOut(e.currentTarget, () => go(SECOND)) : null
+  const close = SECOND_PAGE ? (e) => wipeIn(e.currentTarget, () => go("/")) : null
+  if (SECOND_PAGE && path === SECOND) return <SecondPage onGear={close} />
   return <Home onGear={open} />
 }
